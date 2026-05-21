@@ -1,0 +1,40 @@
+export const colors = {
+  ivory: "#FDFBF7",
+  card: "#FFFDF8",
+  cream: "#FFFDF8",
+  warmBeige: "#EDE3D2",
+  softBeige: "#F4EFE7",
+  border: "#E8DDCB",
+  deepCharcoal: "#2C2C2C",
+  charcoal: "#2C2C2C",
+  charcoalLight: "#4B4945",
+  charcoalMedium: "#363533",
+  charcoalDark: "#242321",
+  greyLight: "#F4EFE7",
+  greyMedium: "#DED2BE",
+  greyDark: "#777777",
+  mutedGrey: "#777777",
+  mutedGold: "#C9A961",
+  goldLight: "#E3D1A6",
+  goldDark: "#9B7A2F",
+  birthday: "#C9A961",
+  waras: "#1F7A5C",
+  passing: "#6F5B8F",
+  hijriGreen: "#1F7A5C",
+  passingPurple: "#6F5B8F",
+  success: "#1F7A5C",
+  warning: "#B98534",
+  error: "#A24A43",
+  info: "#476B8A",
+  overlay: "rgba(44, 44, 44, 0.6)"
+} as const;
+
+export const typography = {
+  display: 48,
+  title: 36,
+  heading: 30,
+  subheading: 24,
+  body: 16,
+  bodyLarge: 18,
+  caption: 14
+} as const;

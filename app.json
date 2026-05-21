@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Yaadi",
+    "slug": "yaadi",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "yaadi",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.yaadi.mobile"
+    },
+    "android": {
+      "package": "app.yaadi.mobile"
+    },
+    "extra": {
+      "tagline": "Remember every special date."
+    }
+  }
+}

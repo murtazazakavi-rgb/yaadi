@@ -1,0 +1,29 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Didact+Gothic&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-ivory: #fdfbf7;
+  --color-warm-beige: #ede3d2;
+  --color-deep-charcoal: #2c2c2c;
+  --color-muted-gold: #c9a961;
+  --color-gold-light: #e3d1a6;
+  --color-gold-dark: #9b7a2f;
+  --color-birthday: #c9a961;
+  --color-waras: #1f7a5c;
+  --color-passing: #6f5b8f;
+  --color-grey-light: #f4efe7;
+  --color-grey-medium: #ded2be;
+  --color-grey-dark: #777777;
+  --shadow-soft: 0 4px 16px rgba(44, 44, 44, 0.08);
+  --shadow-medium: 0 8px 24px rgba(44, 44, 44, 0.12);
+  --shadow-strong: 0 12px 32px rgba(44, 44, 44, 0.16);
+}
+
+html,
+body,
+#root {
+  background: var(--color-ivory);
+}
