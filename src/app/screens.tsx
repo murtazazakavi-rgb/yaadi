@@ -209,7 +209,7 @@ export function DashboardScreen({ navigation }: NavProps) {
 
   const plan = plans.find((item) => item.id === workspace.planId);
   const gate = evaluateSubscriptionGate({ workspace, plan, peopleCount: people.length, adminsCount: 1 });
-  const upcoming = getUpcomingCards(importantDates, people).slice(0, 3);
+  const upcoming = getUpcomingCards(importantDates, people).slice(0, 5);
 
   return (
     <Screen eyebrow={`${workspace.name} · ${plan?.name ?? "Family Plus"} ${workspace.subscriptionStatus}`} title={APP_NAME} subtitle="A private reminder desk for every person and every special date.">
@@ -230,7 +230,7 @@ export function DashboardScreen({ navigation }: NavProps) {
         {gate.showUpgradeCta ? <Text className="mt-4 font-body text-sm text-gold-dark">{gate.reason}</Text> : null}
       </Card>
 
-      <SectionTitle>Upcoming reminders</SectionTitle>
+      <SectionTitle>Coming up</SectionTitle>
       {upcoming.length === 0 ? <InlineNotice>Add a person and a date to start the reminder timeline.</InlineNotice> : null}
       {upcoming.map((item) => <ReminderPreview key={item.id} {...item} />)}
 
@@ -340,6 +340,12 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
   const [notes, setNotes] = useState(person?.notes ?? "");
 
   async function save() {
+    clearFormError();
+    if (!firstName.trim()) {
+      setFormError("First name is required before saving a person.");
+      return;
+    }
+
     const payload = { firstName, middleName, lastName, displayName, gender, livingStatus, mobile, email, familyGroup, notes };
     try {
       if (person) {
@@ -348,8 +354,8 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
         await createPerson(payload);
       }
       navigation.navigate(person ? "PersonProfile" : "PeopleDirectory");
-    } catch {
-      // Store error is rendered.
+    } catch (caught) {
+      setFormError(caught instanceof Error ? caught.message : "Person could not be saved.");
     }
   }
 
@@ -385,7 +391,14 @@ export function AddBirthdayScreen({ navigation, route }: NavProps) {
   const [notes, setNotes] = useState(savedDate?.notes ?? "");
 
   async function save() {
+    clearFormError();
     try {
+      if (!personId) {
+        throw new Error("Choose a person before saving this Birthday.");
+      }
+      if (!date.trim()) {
+        throw new Error("Enter the Gregorian date of birth in YYYY-MM-DD format.");
+      }
       const payload = {
         personId,
         type: "birthday",
@@ -400,8 +413,8 @@ export function AddBirthdayScreen({ navigation, route }: NavProps) {
         await createImportantDate(payload);
       }
       navigation.navigate("UpcomingReminders");
-    } catch {
-      // Store error is rendered.
+    } catch (caught) {
+      setFormError(caught instanceof Error ? caught.message : "Birthday could not be saved.");
     }
   }
 
@@ -426,7 +439,11 @@ export function AddHijriBirthdayWarasScreen({ navigation, route }: NavProps) {
   const [notes, setNotes] = useState(savedDate?.notes ?? "");
 
   async function save() {
+    clearFormError();
     try {
+      if (!personId) {
+        throw new Error("Choose a person before saving this Hijri Birthday.");
+      }
       const payload = {
         personId,
         type: "hijri_birthday_waras",
@@ -443,8 +460,8 @@ export function AddHijriBirthdayWarasScreen({ navigation, route }: NavProps) {
         await createImportantDate(payload);
       }
       navigation.navigate("UpcomingReminders");
-    } catch {
-      // Store error is rendered.
+    } catch (caught) {
+      setFormError(caught instanceof Error ? caught.message : "Hijri Birthday (Waras) could not be saved.");
     }
   }
 
@@ -472,7 +489,14 @@ export function AddPassingAnniversaryScreen({ navigation, route }: NavProps) {
   const [notes, setNotes] = useState(savedDate?.notes ?? "");
 
   async function save() {
+    clearFormError();
     try {
+      if (!personId) {
+        throw new Error("Choose a person before saving this anniversary.");
+      }
+      if (!gregorianDate.trim() && (!hijriDay.trim() || !hijriMonth.trim())) {
+        throw new Error("Add a Gregorian Date of Passing, or both Hijri day and Hijri month.");
+      }
       const payload = {
         personId,
         type: "passing_anniversary",
@@ -488,8 +512,8 @@ export function AddPassingAnniversaryScreen({ navigation, route }: NavProps) {
         await createImportantDate(payload);
       }
       navigation.navigate("UpcomingReminders");
-    } catch {
-      // Store error is rendered.
+    } catch (caught) {
+      setFormError(caught instanceof Error ? caught.message : "Anniversary of their passing could not be saved.");
     }
   }
 
@@ -515,9 +539,13 @@ export function AddWeddingAnniversaryScreen({ navigation, route }: NavProps) {
   const [notes, setNotes] = useState(savedDate?.notes ?? "");
 
   async function save() {
+    clearFormError();
     try {
       if (!firstPersonId || !secondPersonId || firstPersonId === secondPersonId) {
         throw new Error("Choose two people for Wedding Anniversary.");
+      }
+      if (!date.trim()) {
+        throw new Error("Enter the Wedding date in YYYY-MM-DD format.");
       }
       const payload = {
         personId: firstPersonId,
@@ -535,7 +563,7 @@ export function AddWeddingAnniversaryScreen({ navigation, route }: NavProps) {
       }
       navigation.navigate("UpcomingReminders");
     } catch (caught) {
-      useYaadiStore.setState({ error: caught instanceof Error ? caught.message : "Wedding Anniversary could not be saved." });
+      setFormError(caught instanceof Error ? caught.message : "Wedding Anniversary could not be saved.");
     }
   }
 
@@ -699,6 +727,7 @@ export function RelationshipLinkingScreen() {
 export function AccessManagementScreen({ navigation }: NavProps) {
   const { workspace, shareLink, invitations, submissions, members, loadAccessData, setShareLinkEnabled, replaceShareLink, createAdminInvitation, removeAdminMember, error } = useYaadiStore();
   const [email, setEmail] = useState("");
+  const [notice, setNotice] = useState("");
   useEffect(() => {
     if (workspace) {
       void loadAccessData();
@@ -719,7 +748,8 @@ export function AccessManagementScreen({ navigation }: NavProps) {
           <>
             <InlineNotice>{familyLink}</InlineNotice>
             <View className="gap-2">
-              <PrimaryButton label="Share form link" onPress={() => void Share.share({ message: familyLink })} />
+              {notice ? <InlineNotice>{notice}</InlineNotice> : null}
+              <PrimaryButton label="Share form link" onPress={() => void shareFamilyLink(familyLink, setNotice)} />
               <QuietButton label={shareLink.enabled ? "Disable form link" : "Enable form link"} onPress={() => void setShareLinkEnabled(!shareLink.enabled)} />
               <QuietButton label="Replace link" onPress={() => void replaceShareLink()} />
             </View>
@@ -803,6 +833,7 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
   const [weddings, setWeddings] = useState<PublicWeddingDraft[]>([]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     void supabase.rpc("get_public_family_form", { link_token: token }).then(({ data, error: formError }) => {
@@ -818,6 +849,12 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
 
   async function submit() {
     setError("");
+    setNotice("");
+    if (!submitterName.trim()) {
+      setError("Please add your name before submitting.");
+      return;
+    }
+
     const payload: PublicSubmissionPayload = {
       people: people
         .filter((person) => person.firstName.trim())
@@ -846,6 +883,14 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
           notes: blankToUndefined(wedding.notes)
         }))
     };
+
+    const validationError = validatePublicSubmission(payload);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setSubmitting(true);
     const { error: submitError } = await supabase.rpc("submit_public_family_details", {
       link_token: token,
       submitter_name: submitterName,
@@ -855,12 +900,14 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
     });
     if (submitError) {
       setError(submitError.message);
+      setSubmitting(false);
       return;
     }
 
     setNotice("Thank you. The family admin will review these details.");
     setPeople([newPublicPerson()]);
     setWeddings([]);
+    setSubmitting(false);
   }
 
   return (
@@ -906,7 +953,7 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
           ))}
           <View className="mt-3 gap-2">
             <QuietButton label="+ Add Wedding Anniversary" onPress={() => setWeddings((items) => [...items, newPublicWedding()])} />
-            <PrimaryButton label="Submit family details" onPress={() => void submit()} />
+            <PrimaryButton label={submitting ? "Submitting..." : "Submit family details"} onPress={() => void submit()} />
           </View>
         </>
       ) : null}
@@ -1037,8 +1084,28 @@ function HijriMonthGuide() {
   );
 }
 
-function ReminderPreview(props: { id?: string; name: string; title: string; text: string; tone?: "birthday" | "waras" | "passing" }) {
-  return <ReminderCard name={props.name} title={props.title} detail={props.text} tone={props.tone ?? "birthday"} />;
+function ReminderPreview(props: {
+  id?: string;
+  name: string;
+  title: string;
+  text: string;
+  timing: string;
+  occurrenceText: string;
+  milestone: string;
+  tone?: "birthday" | "waras" | "passing";
+}) {
+  return (
+    <Card accent={getToneColor(props.tone)}>
+      <View className="flex-row flex-wrap items-start justify-between">
+        <Badge label={props.timing} tone={props.tone === "waras" ? "waras" : props.tone === "passing" ? "passing" : "gold"} />
+        <Text className="mt-1 font-body text-sm text-grey-dark">{props.occurrenceText}</Text>
+      </View>
+      <Text className="mt-4 font-body text-xs uppercase text-grey-dark">{props.title}</Text>
+      <Text className="mt-2 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">{props.name}</Text>
+      <Text className="mt-2 font-body text-base leading-6 text-charcoal-light">{props.text}</Text>
+      <Text className="mt-3 font-body text-sm font-medium text-gold-dark">{props.milestone}</Text>
+    </Card>
+  );
 }
 
 function QuickAction(props: { icon: typeof UserRoundPlus; label: string; onPress: () => void }) {
@@ -1082,12 +1149,66 @@ function getUpcomingCards(importantDates: ImportantDate[], people: Person[]) {
         name: date.type === "wedding_anniversary" ? participants.map(getPersonDisplayName).join(" and ") : getPersonDisplayName(person),
         title: importantDateLabels[date.type],
         text: buildReminderMessage({ importantDate: date, person, participantPeople: participants, occurrenceDate: occurrence, reminderDaysBefore: offset }),
+        timing: formatOffset(offset),
+        occurrenceText: occurrence.toLocaleDateString(),
+        milestone: getMilestoneText(date, occurrence, people),
         tone: date.type === "hijri_birthday_waras" ? "waras" as const : date.type === "passing_anniversary" ? "passing" as const : "birthday" as const,
         offset
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .sort((a, b) => a.offset - b.offset);
+}
+
+function getToneColor(tone?: "birthday" | "waras" | "passing") {
+  if (tone === "waras") {
+    return colors.hijriGreen;
+  }
+  if (tone === "passing") {
+    return colors.passingPurple;
+  }
+  return colors.goldLight;
+}
+
+function formatOffset(offset: number) {
+  if (offset === 0) {
+    return "Today";
+  }
+  if (offset === 1) {
+    return "Tomorrow";
+  }
+  return `In ${offset} days`;
+}
+
+function getMilestoneText(date: ImportantDate, occurrence: Date, people: Person[]) {
+  if (date.type === "birthday" && date.gregorianDate) {
+    return `Turning ${calculateGregorianAge(date.gregorianDate, occurrence)}`;
+  }
+
+  if (date.type === "hijri_birthday_waras") {
+    const occurrenceHijri = gregorianToHijri(occurrence);
+    const age = calculateHijriAge({ hijriBirthYear: date.hijriYear, currentHijriYear: occurrenceHijri.year });
+    return age ? `Turning ${age} by Hijri age` : `Hijri date: ${formatHijriDayMonth(occurrenceHijri.month, occurrenceHijri.day)}`;
+  }
+
+  if (date.type === "wedding_anniversary" && date.gregorianDate) {
+    const names = (date.participantPersonIds ?? [date.personId])
+      .map((personId) => people.find((person) => person.id === personId))
+      .filter((person): person is Person => Boolean(person))
+      .map(getPersonDisplayName)
+      .join(" and ");
+    return `${calculateYearsMarried(date.gregorianDate, occurrence)} year Wedding Anniversary${names ? ` for ${names}` : ""}`;
+  }
+
+  if (date.gregorianDate) {
+    return `${calculateYearsSincePassing(date.gregorianDate, occurrence)} year Anniversary of passing`;
+  }
+
+  if (date.hijriDay && date.hijriMonth) {
+    return `Hijri remembrance: ${formatHijriDayMonth(date.hijriMonth, date.hijriDay)}`;
+  }
+
+  return "Important family date";
 }
 
 function describeImportantDate(date: ImportantDate, people: Person[]): string {
@@ -1133,12 +1254,34 @@ function getAppOrigin() {
   return process.env.EXPO_PUBLIC_APP_URL ?? "https://yaadi-five.vercel.app";
 }
 
+async function shareFamilyLink(link: string, setNotice: (message: string) => void) {
+  if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(link);
+    setNotice("Family form link copied. You can paste it into WhatsApp, email, or SMS.");
+    return;
+  }
+
+  await Share.share({ message: link });
+  setNotice("Family form link is ready to send.");
+}
+
+function clearFormError() {
+  useYaadiStore.setState({ error: undefined });
+}
+
+function setFormError(message: string) {
+  useYaadiStore.setState({ error: message });
+}
+
 function findPotentialMatches(firstName: string, lastName: string | undefined, people: Person[]) {
   const candidate = `${firstName} ${lastName ?? ""}`.trim().toLowerCase();
   return people.filter((person) => getPersonDisplayName(person).trim().toLowerCase() === candidate);
 }
 
 function readDate(value: string) {
+  if (!isYmdString(value)) {
+    throw new Error("Use date format YYYY-MM-DD, for example 1995-05-29.");
+  }
   const [year, month, day] = value.trim().split("-").map(Number);
   return makeLocalDate(year, month, day);
 }
@@ -1165,6 +1308,39 @@ function optionalInt(value: string) {
   }
   const parsed = Number.parseInt(trimmed, 10);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function isYmdString(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+function validatePublicSubmission(payload: PublicSubmissionPayload) {
+  if (payload.people.length === 0) {
+    return "Add at least one person before submitting family details.";
+  }
+
+  for (const person of payload.people) {
+    if (person.birthday && !isYmdString(person.birthday)) {
+      return `Use YYYY-MM-DD for ${person.firstName}'s Birthday.`;
+    }
+    if (person.passingDate && !isYmdString(person.passingDate)) {
+      return `Use YYYY-MM-DD for ${person.firstName}'s Date of Passing.`;
+    }
+    if ((person.hijriBirthdayDay && !person.hijriBirthdayMonth) || (!person.hijriBirthdayDay && person.hijriBirthdayMonth)) {
+      return `Add both Hijri Birthday day and month for ${person.firstName}.`;
+    }
+  }
+
+  for (const wedding of payload.weddings) {
+    if (!isYmdString(wedding.weddingDate)) {
+      return "Use YYYY-MM-DD for every Wedding Anniversary date.";
+    }
+    if (wedding.firstPersonClientId === wedding.secondPersonClientId) {
+      return "Choose two different people for each Wedding Anniversary.";
+    }
+  }
+
+  return "";
 }
 
 function blankToUndefined(value: string) {

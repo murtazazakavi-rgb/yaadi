@@ -1,5 +1,6 @@
 import {
   calculateGregorianAge,
+  calculateHijriAge,
   calculateYearsMarried,
   calculateYearsSincePassing,
   daysUntil,
@@ -209,7 +210,12 @@ export function buildReminderMessage(input: {
 
   if (input.importantDate.type === "hijri_birthday_waras") {
     const hijriDate = gregorianToHijri(input.occurrenceDate);
-    return `${displayName}'s Hijri Birthday (Waras) is ${timing} - ${formatHijriDayMonth(hijriDate.month, hijriDate.day)}.`;
+    const age = calculateHijriAge({
+      hijriBirthYear: input.importantDate.hijriYear,
+      currentHijriYear: hijriDate.year
+    });
+    const ageSuffix = age ? ` Hijri age: ${age}.` : "";
+    return `${displayName}'s Hijri Birthday (Waras) is ${timing} - ${formatHijriDayMonth(hijriDate.month, hijriDate.day)}.${ageSuffix}`;
   }
 
   if (input.importantDate.type === "wedding_anniversary") {

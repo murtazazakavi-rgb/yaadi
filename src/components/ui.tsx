@@ -1,19 +1,24 @@
 import { ReactNode } from "react";
-import { Platform, Pressable, ScrollView, Text, TextInput, TextInputProps, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, TextInput, TextInputProps, useWindowDimensions, View } from "react-native";
 import { colors } from "../constants/theme";
 
 export function Screen(props: { title?: string; subtitle?: string; eyebrow?: string; children: ReactNode }) {
+  const { width } = useWindowDimensions();
+  const maxWidth = width >= 1100 ? 1040 : width >= 760 ? 720 : undefined;
+
   return (
-    <ScrollView className="flex-1 bg-ivory" contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-      {props.title ? (
-        <View className="pt-2">
-          {props.eyebrow ? <Text className="font-body text-sm uppercase text-grey-dark">{props.eyebrow}</Text> : null}
-          <Text className="mt-2 font-heading text-[36px] font-semibold leading-[40px] text-deep-charcoal">{props.title}</Text>
-          {props.subtitle ? <Text className="mt-2 max-w-[560px] font-body text-lg leading-7 text-charcoal-light">{props.subtitle}</Text> : null}
-          <View className="mt-5 h-px w-16 bg-muted-gold" />
-        </View>
-      ) : null}
-      <View className={props.title ? "mt-6" : ""}>{props.children}</View>
+    <ScrollView className="flex-1 bg-ivory" contentContainerStyle={{ alignItems: "center", padding: 20, paddingBottom: 40 }}>
+      <View style={{ width: "100%", maxWidth }}>
+        {props.title ? (
+          <View className="pt-2">
+            {props.eyebrow ? <Text className="font-body text-sm uppercase text-grey-dark">{props.eyebrow}</Text> : null}
+            <Text className="mt-2 font-heading text-[36px] font-semibold leading-[40px] text-deep-charcoal">{props.title}</Text>
+            {props.subtitle ? <Text className="mt-2 max-w-[660px] font-body text-lg leading-7 text-charcoal-light">{props.subtitle}</Text> : null}
+            <View className="mt-5 h-px w-16 bg-muted-gold" />
+          </View>
+        ) : null}
+        <View className={props.title ? "mt-6" : ""}>{props.children}</View>
+      </View>
     </ScrollView>
   );
 }
