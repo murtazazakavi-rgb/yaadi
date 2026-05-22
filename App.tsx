@@ -15,9 +15,11 @@ import {
   AuthScreen,
   CreateWorkspaceScreen,
   DashboardScreen,
+  DemoScreen,
   InviteAcceptScreen,
   PeopleDirectoryScreen,
   PersonProfileScreen,
+  PublicHomeScreen,
   PublicFamilyFormScreen,
   RelationshipLinkingScreen,
   ReminderSettingsScreen,
@@ -25,6 +27,7 @@ import {
   SplashScreen,
   SubmissionInboxScreen,
   SubscriptionPlansScreen,
+  TrialPlanScreen,
   SuperAdminDashboardScreen,
   UpcomingRemindersScreen,
   WorkspacePickerScreen,
@@ -82,7 +85,7 @@ export default function App() {
     >
       <StatusBar style="dark" />
       <RootStack.Navigator
-        initialRouteName="Splash"
+        initialRouteName="PublicHome"
         screenOptions={{
           headerStyle: { backgroundColor: colors.ivory },
           headerTintColor: colors.charcoal,
@@ -95,6 +98,9 @@ export default function App() {
           contentStyle: { backgroundColor: colors.ivory }
         }}
       >
+        <RootStack.Screen name="PublicHome" component={PublicHomeScreen} options={{ headerShown: false }} />
+        <RootStack.Screen name="TryDemo" component={DemoScreen} options={{ headerShown: false }} />
+        <RootStack.Screen name="TrialPlan" component={TrialPlanScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="CreateWorkspace" component={CreateWorkspaceScreen} options={{ headerShown: false }} />

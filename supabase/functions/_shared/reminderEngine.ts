@@ -170,12 +170,20 @@ export function getOccurrenceDate(importantDate: ImportantDate, today = new Date
   }
 
   if (importantDate.type === "wedding_anniversary") {
-    if (!importantDate.gregorianDate) {
-      throw new Error("Wedding Anniversary requires a Gregorian wedding date.");
+    if (importantDate.gregorianDate) {
+      return getNextWeddingAnniversaryOccurrence({
+        weddingDate: importantDate.gregorianDate,
+        today
+      });
     }
 
-    return getNextWeddingAnniversaryOccurrence({
-      weddingDate: importantDate.gregorianDate,
+    if (!importantDate.hijriMonth || !importantDate.hijriDay) {
+      throw new Error("Wedding Anniversary requires a Gregorian or Hijri wedding date.");
+    }
+
+    return getNextHijriBirthdayWarasOccurrence({
+      hijriMonth: importantDate.hijriMonth,
+      hijriDay: importantDate.hijriDay,
       today
     });
   }
@@ -227,12 +235,14 @@ export function buildReminderMessage(input: {
       ? input.participantPeople
       : [input.person];
     const coupleName = participants.slice(0, 2).map(getPersonDisplayName).join(" and ");
+    const occurrenceHijri = gregorianToHijri(input.occurrenceDate);
     const years = input.importantDate.gregorianDate
       ? calculateYearsMarried(input.importantDate.gregorianDate, input.occurrenceDate)
-      : null;
+      : calculateHijriAge({ hijriBirthYear: input.importantDate.hijriYear, currentHijriYear: occurrenceHijri.year });
     const eventName = years ? `${coupleName}'s ${formatOrdinal(years)} Wedding Anniversary` : `${coupleName}'s Wedding Anniversary`;
+    const hijriDateText = input.importantDate.gregorianDate ? "" : ` — ${formatHijriDayMonth(occurrenceHijri.month, occurrenceHijri.day)}`;
 
-    return input.reminderDaysBefore === 0 ? `This is ${eventName}.` : `${eventName} is ${timing}.`;
+    return input.reminderDaysBefore === 0 ? `This is ${eventName}${hijriDateText}.` : `${eventName} is ${timing}${hijriDateText}.`;
   }
 
   const yearsSincePassing = input.importantDate.gregorianDate

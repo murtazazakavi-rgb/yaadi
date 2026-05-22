@@ -189,6 +189,41 @@ describe("runReminderEngine", () => {
     );
   });
 
+  it("builds Hijri Wedding Anniversary reminders", async () => {
+    const result = await runReminderEngine({
+      repository: createRepository({
+        importantDates: [
+          {
+            ...baseImportantDate,
+            type: "wedding_anniversary",
+            gregorianDate: undefined,
+            hijriDay: 20,
+            hijriMonth: 4,
+            hijriYear: 1430,
+            participantPersonIds: ["person-1", "person-2"],
+            reminderDaysBefore: [7]
+          }
+        ],
+        people: [
+          basePerson,
+          {
+            ...basePerson,
+            id: "person-2",
+            firstName: "Murtaza",
+            lastName: "Bhai"
+          }
+        ]
+      }),
+      today: makeLocalDate(2011, 3, 18),
+      channels: ["email"]
+    });
+
+    assert.match(
+      result.candidates[0]?.message ?? "",
+      /^Fatema Ben and Murtaza Bhai's \d+(st|nd|rd|th) Wedding Anniversary is in 7 days — /
+    );
+  });
+
   it("builds Anniversary of passing reminders with ordinal wording", async () => {
     const result = await runReminderEngine({
       repository: createRepository({

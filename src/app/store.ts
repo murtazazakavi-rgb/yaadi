@@ -24,6 +24,26 @@ type NewImportantDate = Omit<ImportantDate, "id" | "workspaceId"> & {
   participantPersonIds?: string[];
 };
 
+export type DemoPersonDraft = {
+  firstName: string;
+  middleName?: string;
+  lastName?: string;
+  displayName?: string;
+  livingStatus: Person["livingStatus"];
+  mobile?: string;
+  email?: string;
+  familyGroup?: string;
+  notes?: string;
+  birthdayGregorianDate?: Date;
+  birthdayHijriDay?: number;
+  birthdayHijriMonth?: number;
+  birthdayHijriYear?: number;
+  passingGregorianDate?: Date;
+  passingHijriDay?: number;
+  passingHijriMonth?: number;
+  passingHijriYear?: number;
+};
+
 type YaadiState = {
   initialized: boolean;
   loading: boolean;
@@ -42,6 +62,7 @@ type YaadiState = {
   submissions: PublicFamilySubmission[];
   invitations: WorkspaceInvitation[];
   members: WorkspaceMember[];
+  demoDraft?: DemoPersonDraft;
   selectedPersonId?: string;
   bootstrap: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -77,6 +98,9 @@ type YaadiState = {
   acceptInvitation: (token: string) => Promise<FamilyWorkspace>;
   approveSubmission: (submissionId: string) => Promise<void>;
   rejectSubmission: (submissionId: string) => Promise<void>;
+  setDemoDraft: (draft: DemoPersonDraft) => void;
+  clearDemoDraft: () => void;
+  importDemoDraft: () => Promise<void>;
   peopleCount: () => number;
   importantDatesCount: () => number;
 };
@@ -95,6 +119,14 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
   submissions: [],
   invitations: [],
   members: [],
+
+  setDemoDraft(draft) {
+    set({ demoDraft: draft });
+  },
+
+  clearDemoDraft() {
+    set({ demoDraft: undefined });
+  },
 
   async bootstrap() {
     set({ loading: true, error: undefined });
@@ -728,6 +760,55 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
 
   async rejectSubmission(submissionId) {
     await reviewSubmission(submissionId, "rejected", set, get);
+  },
+
+  async importDemoDraft() {
+    const draft = get().demoDraft;
+    if (!draft?.firstName.trim()) {
+      return;
+    }
+
+    const person = await get().createPerson({
+      firstName: draft.firstName,
+      middleName: draft.middleName,
+      lastName: draft.lastName,
+      displayName: draft.displayName,
+      livingStatus: draft.livingStatus,
+      mobile: draft.mobile,
+      email: draft.email,
+      familyGroup: draft.familyGroup,
+      notes: draft.notes
+    });
+
+    if (draft.birthdayGregorianDate || (draft.birthdayHijriDay && draft.birthdayHijriMonth)) {
+      await get().createImportantDate({
+        personId: person.id,
+        type: draft.birthdayGregorianDate ? "birthday" : "hijri_birthday_waras",
+        gregorianDate: draft.birthdayGregorianDate,
+        hijriDay: draft.birthdayHijriDay,
+        hijriMonth: draft.birthdayHijriMonth,
+        hijriYear: draft.birthdayHijriYear,
+        showYear: Boolean(draft.birthdayGregorianDate || draft.birthdayHijriYear),
+        dateSource: "confirmed",
+        reminderDaysBefore: [7, 5, 2, 1, 0]
+      });
+    }
+
+    if (draft.livingStatus === "deceased" && (draft.passingGregorianDate || (draft.passingHijriDay && draft.passingHijriMonth))) {
+      await get().createImportantDate({
+        personId: person.id,
+        type: "passing_anniversary",
+        gregorianDate: draft.passingGregorianDate,
+        hijriDay: draft.passingHijriDay,
+        hijriMonth: draft.passingHijriMonth,
+        hijriYear: draft.passingHijriYear,
+        showYear: Boolean(draft.passingGregorianDate || draft.passingHijriYear),
+        dateSource: "confirmed",
+        reminderDaysBefore: [7, 5, 2, 1, 0]
+      });
+    }
+
+    set({ demoDraft: undefined });
   },
 
   peopleCount() {
