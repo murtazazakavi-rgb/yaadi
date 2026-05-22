@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { makeLocalDate } from "../../calendar/dateConversion";
-import { ReminderRepository, runReminderEngine } from "../reminderEngine";
+import { formatOrdinal, ReminderRepository, runReminderEngine } from "../reminderEngine";
 import { FamilyWorkspace, ImportantDate, Person, ReminderChannel, ReminderLog } from "../../../types/domain";
 
 describe("runReminderEngine", () => {
@@ -88,7 +88,14 @@ describe("runReminderEngine", () => {
     assert.equal(result.createdLogs.length, 0);
   });
 
-  it("includes Birthday age even when the year is hidden", async () => {
+  it("formats ordinal values", () => {
+    assert.deepEqual(
+      [1, 2, 3, 4, 10, 11, 12, 13, 21, 22, 23, 38, 40].map(formatOrdinal),
+      ["1st", "2nd", "3rd", "4th", "10th", "11th", "12th", "13th", "21st", "22nd", "23rd", "38th", "40th"]
+    );
+  });
+
+  it("includes Gregorian Birthday ordinal age even when the year is hidden", async () => {
     const result = await runReminderEngine({
       repository: createRepository({
         importantDates: [
@@ -105,7 +112,49 @@ describe("runReminderEngine", () => {
       channels: ["email"]
     });
 
-    assert.equal(result.candidates[0]?.message, "Fatema Ben's Birthday is in 7 days. She will turn 31.");
+    assert.equal(result.candidates[0]?.message, "Fatema Ben's 31st Gregorian Birthday is in 7 days.");
+  });
+
+  it("builds today Gregorian Birthday reminders with ordinal wording", async () => {
+    const result = await runReminderEngine({
+      repository: createRepository({
+        importantDates: [
+          {
+            ...baseImportantDate,
+            gregorianDate: makeLocalDate(1988, 5, 22),
+            reminderDaysBefore: [0]
+          }
+        ],
+        people: [{ ...basePerson, firstName: "Murtaza", lastName: "" }]
+      }),
+      today: makeLocalDate(2026, 5, 22),
+      channels: ["email"]
+    });
+
+    assert.equal(result.candidates[0]?.message, "This is Murtaza's 38th Gregorian Birthday.");
+  });
+
+  it("builds Hijri Birthday (Waras) reminders with ordinal age when year exists", async () => {
+    const result = await runReminderEngine({
+      repository: createRepository({
+        importantDates: [
+          {
+            ...baseImportantDate,
+            type: "hijri_birthday_waras",
+            hijriDay: 20,
+            hijriMonth: 4,
+            hijriYear: 1392,
+            gregorianDate: undefined,
+            reminderDaysBefore: [7]
+          }
+        ],
+        people: [{ ...basePerson, firstName: "Murtaza", lastName: "" }]
+      }),
+      today: makeLocalDate(2011, 3, 18),
+      channels: ["email"]
+    });
+
+    assert.match(result.candidates[0]?.message ?? "", /^Murtaza's \d+(st|nd|rd|th) Hijri Birthday \(Waras\) is in 7 days — /);
   });
 
   it("builds Wedding Anniversary reminders for both participants", async () => {
@@ -136,8 +185,28 @@ describe("runReminderEngine", () => {
 
     assert.equal(
       result.candidates[0]?.message,
-      "Fatema Ben and Murtaza Bhai's Wedding Anniversary is in 7 days. Years married: 12."
+      "Fatema Ben and Murtaza Bhai's 12th Wedding Anniversary is in 7 days."
     );
+  });
+
+  it("builds Anniversary of passing reminders with ordinal wording", async () => {
+    const result = await runReminderEngine({
+      repository: createRepository({
+        importantDates: [
+          {
+            ...baseImportantDate,
+            type: "passing_anniversary",
+            gregorianDate: makeLocalDate(2021, 5, 29),
+            reminderDaysBefore: [7]
+          }
+        ],
+        people: [{ ...basePerson, firstName: "Murtaza", lastName: "" }]
+      }),
+      today: makeLocalDate(2026, 5, 22),
+      channels: ["email"]
+    });
+
+    assert.equal(result.candidates[0]?.message, "The 5th Anniversary of Murtaza's passing is in 7 days.");
   });
 });
 

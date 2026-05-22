@@ -128,17 +128,24 @@ export type PublicSubmissionPersonInput = {
   middleName?: string;
   lastName?: string;
   displayName?: string;
+  relationshipToSubmitter?: string;
+  familySide?: string;
   gender?: string;
   livingStatus: LivingStatus;
   mobile?: string;
   email?: string;
   familyGroup?: string;
+  canReceiveReminders?: "yes" | "no" | "not_sure";
   notes?: string;
   birthday?: string;
   hijriBirthdayDay?: number;
   hijriBirthdayMonth?: number;
   hijriBirthdayYear?: number;
   passingDate?: string;
+  passingHijriDay?: number;
+  passingHijriMonth?: number;
+  passingHijriYear?: number;
+  createPassingReminder?: boolean;
 };
 
 export type PublicSubmissionWeddingInput = {
@@ -149,6 +156,9 @@ export type PublicSubmissionWeddingInput = {
 };
 
 export type PublicSubmissionPayload = {
+  meta?: {
+    submitterFamilyRelation?: string;
+  };
   people: PublicSubmissionPersonInput[];
   weddings: PublicSubmissionWeddingInput[];
 };

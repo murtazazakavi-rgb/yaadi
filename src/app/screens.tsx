@@ -1,5 +1,5 @@
 import { Dispatch, ReactNode, SetStateAction, useEffect, useState } from "react";
-import { Platform, Pressable, Share, Text, View } from "react-native";
+import { Modal, Platform, Pressable, Share, Text, View } from "react-native";
 import {
   BellRing,
   CalendarDays,
@@ -16,7 +16,7 @@ import {
   Users,
   WalletCards
 } from "lucide-react-native";
-import { APP_NAME, APP_TAGLINE, importantDateLabels, passingDateLabel } from "../constants/copy";
+import { APP_NAME, APP_TAGLINE, importantDateLabels, passingDateLabel, passingHijriDateLabel } from "../constants/copy";
 import { colors } from "../constants/theme";
 import {
   Badge,
@@ -41,17 +41,43 @@ import {
   formatHijriDayMonth,
   getNextHijriBirthdayWarasOccurrence,
   gregorianToHijri,
+  hijriToGregorian,
   makeLocalDate
 } from "../lib/calendar/dateConversion";
+import { HijriDate } from "../lib/calendar/hijriDate";
 import { evaluateSubscriptionGate } from "../lib/subscriptions/enforcement";
-import { buildReminderMessage, getOccurrenceDate, getPersonDisplayName } from "../lib/reminders/reminderEngine";
-import { getHijriMonthName } from "../lib/calendar/hijriMonths";
+import { buildReminderMessage, formatOrdinal, getOccurrenceDate, getPersonDisplayName } from "../lib/reminders/reminderEngine";
+import { getHijriMonthName, getHijriShortMonthName } from "../lib/calendar/hijriMonths";
 import { supabase } from "../lib/supabase/client";
 import { ImportantDate, Person, PersonRelationship, PublicSubmissionPayload, RelationshipType } from "../types/domain";
 
 type NavProps = any;
 
 const reminderDays = [7, 5, 2, 1, 0];
+const submitterRelationOptions = ["Self", "Father's side", "Mother's side", "Spouse's side", "In-law", "Friend", "Other"];
+const relationshipToSubmitterOptions = [
+  "Self",
+  "Father",
+  "Mother",
+  "Spouse",
+  "Son",
+  "Daughter",
+  "Brother",
+  "Sister",
+  "Grandfather",
+  "Grandmother",
+  "Uncle",
+  "Aunt",
+  "Cousin",
+  "Friend",
+  "Other"
+];
+const familySideOptions = ["Father's side", "Mother's side", "Spouse's side", "Friend", "Other"];
+const reminderConsentOptions: Array<[PublicPersonDraft["canReceiveReminders"], string]> = [
+  ["yes", "Yes"],
+  ["no", "No"],
+  ["not_sure", "Not sure"]
+];
 
 export function SplashScreen({ navigation }: NavProps) {
   return (
@@ -238,7 +264,7 @@ export function DashboardScreen({ navigation }: NavProps) {
       <View className="flex-row flex-wrap justify-between">
         <QuickAction icon={UserRoundPlus} label="Add Person" onPress={() => navigation.navigate("AddPerson")} />
         <QuickAction icon={Users} label="View People" onPress={() => navigation.navigate("PeopleDirectory")} />
-        <QuickAction icon={CalendarPlus} label="Add Date" onPress={() => navigation.navigate("AddBirthday")} />
+        <QuickAction icon={CalendarPlus} label="Gregorian Birthday" onPress={() => navigation.navigate("AddBirthday")} />
         <QuickAction icon={CalendarHeart} label="Wedding" onPress={() => navigation.navigate("AddWeddingAnniversary")} />
         <QuickAction icon={ShieldCheck} label="Access" onPress={() => navigation.navigate("AccessManagement")} />
         <QuickAction icon={Link2} label="Relations" onPress={() => navigation.navigate("RelationshipLinking")} />
@@ -316,7 +342,7 @@ export function PersonProfileScreen({ navigation }: NavProps) {
         </Card>
       ))}
       <View className="gap-3">
-        <PrimaryButton label="Add Birthday" onPress={() => navigation.navigate("AddBirthday")} />
+        <PrimaryButton label="Add Gregorian Birthday" onPress={() => navigation.navigate("AddBirthday")} />
         <PrimaryButton label="Add Hijri Birthday (Waras)" tone="green" onPress={() => navigation.navigate("AddHijriBirthdayWaras")} />
         <PrimaryButton label="Add Wedding Anniversary" onPress={() => navigation.navigate("AddWeddingAnniversary")} />
         <PrimaryButton label="Add Anniversary of their passing" tone="purple" onPress={() => navigation.navigate("AddPassingAnniversary")} />
@@ -372,7 +398,7 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
           <ChoiceButton label="Living" selected={livingStatus === "living"} onPress={() => setLivingStatus("living")} />
           <ChoiceButton label="Deceased" selected={livingStatus === "deceased"} onPress={() => setLivingStatus("deceased")} />
         </View>
-        <FormField label="Gender" value={gender} onChangeText={setGender} helper="Optional. Use male or female if Birthday pronouns should be personal." />
+        <FormField label="Gender" value={gender} onChangeText={setGender} helper="Optional. Use male or female if reminder wording should be personal." />
         <FormField label="Mobile" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" />
         <FormField label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
         <FormField label="Family group" value={familyGroup} onChangeText={setFamilyGroup} />
@@ -394,7 +420,7 @@ export function AddBirthdayScreen({ navigation, route }: NavProps) {
     clearFormError();
     try {
       if (!personId) {
-        throw new Error("Choose a person before saving this Birthday.");
+        throw new Error("Choose a person before saving this Gregorian Birthday.");
       }
       if (!date.trim()) {
         throw new Error("Enter the Gregorian date of birth in YYYY-MM-DD format.");
@@ -414,17 +440,17 @@ export function AddBirthdayScreen({ navigation, route }: NavProps) {
       }
       navigation.navigate("UpcomingReminders");
     } catch (caught) {
-      setFormError(caught instanceof Error ? caught.message : "Birthday could not be saved.");
+      setFormError(caught instanceof Error ? caught.message : "Gregorian Birthday could not be saved.");
     }
   }
 
   return (
-    <DateFormShell error={error} title={savedDate ? "Edit Birthday" : "Add Birthday"} subtitle="Set the Gregorian birthday and reminder days.">
+    <DateFormShell error={error} title={savedDate ? "Edit Gregorian Birthday" : "Add Gregorian Birthday"} subtitle="Set the Gregorian Birthday and reminder days.">
       <PersonPicker label="Person" selectedPersonId={personId} onSelect={setPersonId} />
-      <FormField label="Gregorian date of birth" placeholder="1995-05-29" value={date} onChangeText={setDate} helper="Use YYYY-MM-DD. Birthday reminders show the turning age when year exists." />
+      <FormField label="Gregorian Birthday" placeholder="1995-05-29" value={date} onChangeText={setDate} helper="Use YYYY-MM-DD. Gregorian Birthday reminders show the exact age." />
       <FormField label="Notes" value={notes} onChangeText={setNotes} multiline />
       <ReminderOffsets />
-      <PrimaryButton label={savedDate ? "Save Birthday changes" : "Save Birthday"} onPress={() => void save()} />
+      <PrimaryButton label={savedDate ? "Save Gregorian Birthday changes" : "Save Gregorian Birthday"} onPress={() => void save()} />
     </DateFormShell>
   );
 }
@@ -442,7 +468,7 @@ export function AddHijriBirthdayWarasScreen({ navigation, route }: NavProps) {
     clearFormError();
     try {
       if (!personId) {
-        throw new Error("Choose a person before saving this Hijri Birthday.");
+        throw new Error("Choose a person before saving this Hijri Birthday (Waras).");
       }
       const payload = {
         personId,
@@ -545,7 +571,7 @@ export function AddWeddingAnniversaryScreen({ navigation, route }: NavProps) {
         throw new Error("Choose two people for Wedding Anniversary.");
       }
       if (!date.trim()) {
-        throw new Error("Enter the Wedding date in YYYY-MM-DD format.");
+        throw new Error("Enter the Wedding Anniversary — Gregorian date in YYYY-MM-DD format.");
       }
       const payload = {
         personId: firstPersonId,
@@ -571,7 +597,7 @@ export function AddWeddingAnniversaryScreen({ navigation, route }: NavProps) {
     <DateFormShell error={error} title={savedDate ? "Edit Wedding Anniversary" : "Add Wedding Anniversary"} subtitle="Link the anniversary to both people in the couple.">
       <PersonPicker label="First person" selectedPersonId={firstPersonId} onSelect={setFirstPersonId} />
       <PersonPicker label="Second person" selectedPersonId={secondPersonId} onSelect={setSecondPersonId} />
-      <FormField label="Wedding date" placeholder="2014-06-02" value={date} onChangeText={setDate} />
+      <FormField label="Wedding Anniversary — Gregorian" placeholder="2014-06-02" value={date} onChangeText={setDate} />
       <FormField label="Notes" value={notes} onChangeText={setNotes} multiline />
       <ReminderOffsets />
       <PrimaryButton label={savedDate ? "Save changes" : "Save Wedding Anniversary"} onPress={() => void save()} />
@@ -797,19 +823,29 @@ export function SubmissionInboxScreen() {
           </View>
           <Text className="mt-4 font-heading text-[28px] font-medium text-deep-charcoal">{submission.submitterName}</Text>
           <Text className="mt-1 font-body text-sm text-grey-dark">{submission.submitterEmail ?? submission.submitterMobile ?? "No contact supplied"}</Text>
+          {submission.payload.meta?.submitterFamilyRelation ? (
+            <Text className="mt-1 font-body text-xs uppercase text-grey-dark">{submission.payload.meta.submitterFamilyRelation}</Text>
+          ) : null}
+          <Text className="mt-3 font-body text-sm text-charcoal-light">{submission.payload.people.length} family member{submission.payload.people.length === 1 ? "" : "s"} submitted</Text>
           {submission.payload.people.map((person) => {
             const matches = findPotentialMatches(person.firstName, person.lastName, people);
             return (
               <View key={person.clientId} className="mt-3 rounded-input border border-line bg-grey-light p-3">
-                <Text className="font-body text-base text-deep-charcoal">{[person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ")}</Text>
+                <Text className="font-body text-base text-deep-charcoal">{person.displayName ?? [person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ")}</Text>
+                {person.relationshipToSubmitter ? <Text className="mt-1 font-body text-xs text-grey-dark">Relationship: {person.relationshipToSubmitter}</Text> : null}
+                <Text className="mt-1 font-body text-xs text-grey-dark">{person.livingStatus === "living" ? "Living" : "Passed away"}</Text>
                 <Text className="mt-1 font-body text-xs text-grey-dark">
-                  {[person.birthday ? "Birthday" : "", person.hijriBirthdayDay ? "Hijri Birthday (Waras)" : "", person.passingDate ? "Anniversary of their passing" : ""].filter(Boolean).join(" · ") || "Person details"}
+                  {[
+                    person.birthday ? `Gregorian Birthday: ${formatGregorianDisplay(person.birthday)}` : "",
+                    person.hijriBirthdayDay && person.hijriBirthdayMonth ? `Hijri Birthday (Waras): ${formatHijriDisplay(person.hijriBirthdayDay, person.hijriBirthdayMonth, person.hijriBirthdayYear)}` : "",
+                    person.passingDate ? `Anniversary of their passing: ${formatGregorianDisplay(person.passingDate)}` : ""
+                  ].filter(Boolean).join(" · ") || "Person details"}
                 </Text>
                 {matches.length > 0 ? <Text className="mt-1 font-body text-xs text-gold-dark">Possible existing match: {matches.map(getPersonDisplayName).join(", ")}</Text> : null}
               </View>
             );
           })}
-          {submission.payload.weddings.length > 0 ? <Text className="mt-3 font-body text-sm text-charcoal-light">{submission.payload.weddings.length} Wedding Anniversary entry</Text> : null}
+          {submission.payload.weddings.length > 0 ? <Text className="mt-3 font-body text-sm text-charcoal-light">{submission.payload.weddings.length} Wedding Anniversary entr{submission.payload.weddings.length === 1 ? "y" : "ies"}</Text> : null}
           {submission.status === "pending" ? (
             <View className="mt-4 gap-2">
               <PrimaryButton label="Approve as new records" onPress={() => void approveSubmission(submission.id)} />
@@ -829,6 +865,7 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
   const [submitterName, setSubmitterName] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterMobile, setSubmitterMobile] = useState("");
+  const [submitterFamilyRelation, setSubmitterFamilyRelation] = useState("");
   const [people, setPeople] = useState<PublicPersonDraft[]>([newPublicPerson()]);
   const [weddings, setWeddings] = useState<PublicWeddingDraft[]>([]);
   const [notice, setNotice] = useState("");
@@ -854,8 +891,23 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
       setError("Please add your name before submitting.");
       return;
     }
+    if (!submitterMobile.trim()) {
+      setError("Please add your mobile number before submitting.");
+      return;
+    }
+    if (!isLooseMobile(submitterMobile)) {
+      setError("Please enter a valid mobile number. Indian and international numbers are okay.");
+      return;
+    }
+    if (submitterEmail.trim() && !isEmailLike(submitterEmail)) {
+      setError("Please check your email address or leave it blank.");
+      return;
+    }
 
     const payload: PublicSubmissionPayload = {
+      meta: {
+        submitterFamilyRelation: blankToUndefined(submitterFamilyRelation)
+      },
       people: people
         .filter((person) => person.firstName.trim())
         .map((person) => ({
@@ -863,15 +915,24 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
           firstName: person.firstName.trim(),
           middleName: blankToUndefined(person.middleName),
           lastName: blankToUndefined(person.lastName),
+          displayName: blankToUndefined(person.displayName),
+          relationshipToSubmitter: blankToUndefined(person.relationshipToSubmitter),
+          familySide: blankToUndefined(person.familySide),
           gender: blankToUndefined(person.gender),
           livingStatus: person.livingStatus,
           mobile: blankToUndefined(person.mobile),
           email: blankToUndefined(person.email),
+          familyGroup: blankToUndefined(person.familySide),
+          canReceiveReminders: person.canReceiveReminders,
           birthday: blankToUndefined(person.birthday),
           hijriBirthdayDay: optionalInt(person.hijriDay),
           hijriBirthdayMonth: optionalInt(person.hijriMonth),
           hijriBirthdayYear: optionalInt(person.hijriYear),
-          passingDate: blankToUndefined(person.passingDate),
+          passingDate: person.livingStatus === "deceased" ? blankToUndefined(person.passingDate) : undefined,
+          passingHijriDay: person.livingStatus === "deceased" ? optionalInt(person.passingHijriDay) : undefined,
+          passingHijriMonth: person.livingStatus === "deceased" ? optionalInt(person.passingHijriMonth) : undefined,
+          passingHijriYear: person.livingStatus === "deceased" ? optionalInt(person.passingHijriYear) : undefined,
+          createPassingReminder: person.livingStatus === "deceased" ? person.createPassingReminder : undefined,
           notes: blankToUndefined(person.notes)
         })),
       weddings: weddings
@@ -911,48 +972,165 @@ export function PublicFamilyFormScreen({ route }: NavProps) {
   }
 
   return (
-    <Screen eyebrow="Family details form" title={workspaceName ? `${workspaceName} details` : "Family details"} subtitle="Share dates respectfully. The family admin reviews every submission before it becomes a reminder.">
+    <Screen
+      eyebrow={workspaceName ? workspaceName : "Family details form"}
+      title="Yaadi Family Details Form"
+      subtitle="Help us create respectful family reminders for birthdays, Hijri Birthday (Waras), anniversaries, and remembrance dates. Every submission is reviewed by the family admin before it becomes active."
+    >
       {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
       {notice ? <InlineNotice>{notice}</InlineNotice> : null}
       {available ? (
         <>
           <Card>
-            <FormField label="Your name" value={submitterName} onChangeText={setSubmitterName} />
-            <FormField label="Your email" value={submitterEmail} onChangeText={setSubmitterEmail} keyboardType="email-address" autoCapitalize="none" />
-            <FormField label="Your mobile" value={submitterMobile} onChangeText={setSubmitterMobile} keyboardType="phone-pad" />
+            <Badge label="Your Details" />
+            <Text className="mt-4 font-body text-sm leading-6 text-charcoal-light">
+              These details will only be used for family reminders and will be reviewed by the family admin before being added.
+            </Text>
+            <FormField label="Your full name" value={submitterName} onChangeText={setSubmitterName} />
+            <FormField label="Your mobile number" value={submitterMobile} onChangeText={setSubmitterMobile} keyboardType="phone-pad" />
+            <FormField label="Your email address" value={submitterEmail} onChangeText={setSubmitterEmail} keyboardType="email-address" autoCapitalize="none" />
+            <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Your relation with the family</Text>
+            <ChoiceGrid>
+              {submitterRelationOptions.map((option) => (
+                <ChoiceButton key={option} label={option} selected={submitterFamilyRelation === option} onPress={() => setSubmitterFamilyRelation(option)} />
+              ))}
+            </ChoiceGrid>
           </Card>
           {people.map((person, index) => (
             <Card key={person.clientId}>
-              <Badge label={`Person ${index + 1}`} />
+              <Badge label={`Family Member ${index + 1}`} />
+              <SectionTitle>Family Member Details</SectionTitle>
               <FormField label="First name" value={person.firstName} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { firstName: value })} />
               <FormField label="Middle name" value={person.middleName} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { middleName: value })} />
               <FormField label="Last name" value={person.lastName} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { lastName: value })} />
+              <FormField label="Display name" value={person.displayName} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { displayName: value })} helper="This is how the name will appear in reminders." />
+              <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Relationship to you</Text>
+              <ChoiceGrid>
+                {relationshipToSubmitterOptions.map((option) => (
+                  <ChoiceButton key={option} label={option} selected={person.relationshipToSubmitter === option} onPress={() => updatePublicPerson(setPeople, person.clientId, { relationshipToSubmitter: option })} />
+                ))}
+              </ChoiceGrid>
+              <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Family side</Text>
+              <ChoiceGrid>
+                {familySideOptions.map((option) => (
+                  <ChoiceButton key={option} label={option} selected={person.familySide === option} onPress={() => updatePublicPerson(setPeople, person.clientId, { familySide: option })} />
+                ))}
+              </ChoiceGrid>
               <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Living status</Text>
               <View className="mb-3 flex-row flex-wrap">
                 <ChoiceButton label="Living" selected={person.livingStatus === "living"} onPress={() => updatePublicPerson(setPeople, person.clientId, { livingStatus: "living" })} />
-                <ChoiceButton label="Deceased" selected={person.livingStatus === "deceased"} onPress={() => updatePublicPerson(setPeople, person.clientId, { livingStatus: "deceased" })} />
+                <ChoiceButton label="Passed away" selected={person.livingStatus === "deceased"} onPress={() => updatePublicPerson(setPeople, person.clientId, { livingStatus: "deceased" })} />
               </View>
-              <FormField label="Birthday" placeholder="1995-05-29" value={person.birthday} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { birthday: value })} />
-              <FormField label="Hijri Birthday (Waras) day" value={person.hijriDay} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { hijriDay: value })} keyboardType="number-pad" />
-              <FormField label="Hijri Birthday (Waras) month" value={person.hijriMonth} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { hijriMonth: value })} keyboardType="number-pad" />
-              <FormField label="Hijri Birthday (Waras) year" value={person.hijriYear} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { hijriYear: value })} keyboardType="number-pad" />
-              <FormField label={passingDateLabel} placeholder="2020-05-23" value={person.passingDate} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { passingDate: value })} />
-              <FormField label="Notes" value={person.notes} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { notes: value })} multiline />
+              <FormField label="Gender" value={person.gender} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { gender: value })} />
+
+              <SectionTitle>Birthday Details</SectionTitle>
+              <InlineNotice>Add either Gregorian or Hijri date. If you know both, please add both.</InlineNotice>
+              <GregorianDatePickerField
+                label="Gregorian Birthday"
+                value={person.birthday}
+                onChange={(value) => updatePublicPerson(setPeople, person.clientId, { birthday: value })}
+                helper={getGregorianBirthdayPreview(person)}
+              />
+              <QuietButton
+                label="Convert to Hijri Birthday (Waras)"
+                onPress={() => convertPublicGregorianBirthdayToHijri(person, setPeople, setError)}
+              />
+              <View className="mt-3" />
+              <HijriDatePickerField
+                label="Hijri Birthday (Waras)"
+                hijriDay={optionalInt(person.hijriDay)}
+                hijriMonth={optionalInt(person.hijriMonth)}
+                hijriYear={optionalInt(person.hijriYear)}
+                allowYearOptional
+                onChange={(value) =>
+                  updatePublicPerson(setPeople, person.clientId, {
+                    hijriDay: value.day ? String(value.day) : "",
+                    hijriMonth: value.month ? String(value.month) : "",
+                    hijriYear: value.year ? String(value.year) : ""
+                  })
+                }
+                helper={getHijriBirthdayPreview(person)}
+              />
+              <QuietButton
+                label="Convert to Gregorian Birthday"
+                onPress={() => convertPublicHijriBirthdayToGregorian(person, setPeople, setError)}
+              />
+
+              <SectionTitle>Contact Details</SectionTitle>
+              <FormField label="Mobile Number" value={person.mobile} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { mobile: value })} keyboardType="phone-pad" />
+              <FormField label="Email Address" value={person.email} onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { email: value })} keyboardType="email-address" autoCapitalize="none" />
+              <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Can this person receive reminders?</Text>
+              <ChoiceGrid>
+                {reminderConsentOptions.map(([value, label]) => (
+                  <ChoiceButton key={value} label={label} selected={person.canReceiveReminders === value} onPress={() => updatePublicPerson(setPeople, person.clientId, { canReceiveReminders: value })} />
+                ))}
+              </ChoiceGrid>
+
+              {person.livingStatus === "deceased" ? (
+                <>
+                  <SectionTitle>Remembrance Details</SectionTitle>
+                  <GregorianDatePickerField
+                    label={passingDateLabel}
+                    value={person.passingDate}
+                    onChange={(value) => updatePublicPerson(setPeople, person.clientId, { passingDate: value })}
+                    helper={getPassingPreview(person)}
+                  />
+                  <HijriDatePickerField
+                    label={passingHijriDateLabel}
+                    hijriDay={optionalInt(person.passingHijriDay)}
+                    hijriMonth={optionalInt(person.passingHijriMonth)}
+                    hijriYear={optionalInt(person.passingHijriYear)}
+                    allowYearOptional
+                    onChange={(value) =>
+                      updatePublicPerson(setPeople, person.clientId, {
+                        passingHijriDay: value.day ? String(value.day) : "",
+                        passingHijriMonth: value.month ? String(value.month) : "",
+                        passingHijriYear: value.year ? String(value.year) : ""
+                      })
+                    }
+                  />
+                  <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Create reminder for Anniversary of their passing?</Text>
+                  <ChoiceGrid>
+                    <ChoiceButton label="Yes" selected={person.createPassingReminder} onPress={() => updatePublicPerson(setPeople, person.clientId, { createPassingReminder: true })} />
+                    <ChoiceButton label="No" selected={!person.createPassingReminder} onPress={() => updatePublicPerson(setPeople, person.clientId, { createPassingReminder: false })} />
+                  </ChoiceGrid>
+                </>
+              ) : null}
+
+              {getMissingDatesWarning(person, weddings) ? <InlineNotice>{getMissingDatesWarning(person, weddings)}</InlineNotice> : null}
+              <FormField
+                label="Notes"
+                placeholder="Add anything useful: unsure dates, alternate spellings, family context, corrections, etc."
+                value={person.notes}
+                onChangeText={(value) => updatePublicPerson(setPeople, person.clientId, { notes: value })}
+                multiline
+              />
             </Card>
           ))}
-          <QuietButton label="+ Add another person" onPress={() => setPeople((items) => [...items, newPublicPerson()])} />
-          <SectionTitle>Wedding Anniversary</SectionTitle>
-          {weddings.map((wedding, index) => (
-            <Card key={wedding.clientId}>
-              <Badge label={`Wedding ${index + 1}`} />
-              <PublicPersonPicker label="First person" people={people} selectedId={wedding.firstPersonClientId} onSelect={(value) => updatePublicWedding(setWeddings, wedding.clientId, { firstPersonClientId: value })} />
-              <PublicPersonPicker label="Second person" people={people} selectedId={wedding.secondPersonClientId} onSelect={(value) => updatePublicWedding(setWeddings, wedding.clientId, { secondPersonClientId: value })} />
-              <FormField label="Wedding date" placeholder="2014-06-02" value={wedding.weddingDate} onChangeText={(value) => updatePublicWedding(setWeddings, wedding.clientId, { weddingDate: value })} />
-              <FormField label="Notes" value={wedding.notes} onChangeText={(value) => updatePublicWedding(setWeddings, wedding.clientId, { notes: value })} multiline />
-            </Card>
-          ))}
+          <QuietButton label="+ Add another family member" onPress={() => setPeople((items) => [...items, newPublicPerson()])} />
+          <Card>
+            <Badge label="Optional" />
+            <Text className="mt-4 font-heading text-[28px] font-medium text-deep-charcoal">Marriage Details — optional</Text>
+            <Text className="mt-2 font-body text-sm leading-6 text-grey-dark">Add Wedding Anniversary details after both people are listed above.</Text>
+            {weddings.map((wedding, index) => (
+              <View key={wedding.clientId} className="mt-4 rounded-input border border-line bg-grey-light p-4">
+                <Badge label={`Wedding Anniversary ${index + 1}`} />
+                <PublicPersonPicker label="First person" people={people} selectedId={wedding.firstPersonClientId} onSelect={(value) => updatePublicWedding(setWeddings, wedding.clientId, { firstPersonClientId: value })} />
+                <PublicPersonPicker label="Second person" people={people} selectedId={wedding.secondPersonClientId} onSelect={(value) => updatePublicWedding(setWeddings, wedding.clientId, { secondPersonClientId: value })} />
+                <GregorianDatePickerField
+                  label="Wedding Anniversary — Gregorian"
+                  value={wedding.weddingDate}
+                  onChange={(value) => updatePublicWedding(setWeddings, wedding.clientId, { weddingDate: value })}
+                  helper={getWeddingPreview(wedding)}
+                />
+                <FormField label="Notes" value={wedding.notes} onChangeText={(value) => updatePublicWedding(setWeddings, wedding.clientId, { notes: value })} multiline />
+              </View>
+            ))}
+            <View className="mt-3">
+              <QuietButton label="+ Add Wedding Anniversary" onPress={() => setWeddings((items) => [...items, newPublicWedding()])} />
+            </View>
+          </Card>
           <View className="mt-3 gap-2">
-            <QuietButton label="+ Add Wedding Anniversary" onPress={() => setWeddings((items) => [...items, newPublicWedding()])} />
             <PrimaryButton label={submitting ? "Submitting..." : "Submit family details"} onPress={() => void submit()} />
           </View>
         </>
@@ -1070,6 +1248,136 @@ function PublicPersonPicker(props: { label: string; people: PublicPersonDraft[];
   );
 }
 
+function GregorianDatePickerField(props: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  helper?: string;
+  required?: boolean;
+}) {
+  const selectedDate = props.value ? readDate(props.value) : new Date();
+  const [open, setOpen] = useState(false);
+  const [year, setYear] = useState(selectedDate.getFullYear());
+  const [month, setMonth] = useState(selectedDate.getMonth() + 1);
+  const dayCount = daysInGregorianMonth(year, month);
+
+  function chooseDay(day: number) {
+    props.onChange(toInputDate(makeLocalDate(year, month, day)));
+    setOpen(false);
+  }
+
+  return (
+    <View className="mb-4">
+      <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">{props.label}{props.required ? " *" : ""}</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setOpen(true)}
+        className="min-h-[52px] justify-center rounded-input border border-grey-medium bg-grey-light px-5 py-3"
+      >
+        <Text className="font-body text-base text-deep-charcoal">{props.value ? formatGregorianDisplay(props.value) : "Select date"}</Text>
+      </Pressable>
+      {props.helper ? <Text className="mt-1 font-body text-xs leading-5 text-grey-dark">{props.helper}</Text> : null}
+      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+        <View className="flex-1 justify-end bg-black/30">
+          <View className="max-h-[86%] rounded-t-card bg-ivory p-5">
+            <Text className="font-heading text-[28px] font-medium text-deep-charcoal">{props.label}</Text>
+            <View className="my-4 flex-row items-center justify-between">
+              <QuietButton label="- Year" onPress={() => setYear((value) => value - 1)} />
+              <Text className="font-heading text-[26px] font-semibold text-deep-charcoal">{year}</Text>
+              <QuietButton label="+ Year" onPress={() => setYear((value) => value + 1)} />
+            </View>
+            <ChoiceGrid>
+              {Array.from({ length: 12 }, (_, index) => index + 1).map((item) => (
+                <ChoiceButton key={item} label={new Date(2026, item - 1, 1).toLocaleString(undefined, { month: "short" })} selected={month === item} onPress={() => setMonth(item)} />
+              ))}
+            </ChoiceGrid>
+            <ChoiceGrid>
+              {Array.from({ length: dayCount }, (_, index) => index + 1).map((day) => (
+                <ChoiceButton key={day} label={String(day)} selected={props.value === toInputDate(makeLocalDate(year, month, day))} onPress={() => chooseDay(day)} />
+              ))}
+            </ChoiceGrid>
+            <QuietButton label="Close" onPress={() => setOpen(false)} />
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function HijriDatePickerField(props: {
+  label: string;
+  hijriDay?: number;
+  hijriMonth?: number;
+  hijriYear?: number;
+  onChange: (value: { day?: number; month?: number; year?: number }) => void;
+  helper?: string;
+  allowYearOptional?: boolean;
+  required?: boolean;
+}) {
+  const currentHijri = gregorianToHijri(new Date());
+  const [open, setOpen] = useState(false);
+  const [day, setDay] = useState(props.hijriDay ?? 1);
+  const [month, setMonth] = useState(props.hijriMonth ?? currentHijri.month);
+  const [year, setYear] = useState(props.hijriYear ?? currentHijri.year);
+  const [includeYear, setIncludeYear] = useState(Boolean(props.hijriYear) || !props.allowYearOptional);
+  const validationYear = includeYear ? year : currentHijri.year;
+  const dayCount = HijriDate.daysInPublicMonth(validationYear, month);
+  const safeDay = Math.min(day, dayCount);
+
+  function save() {
+    props.onChange({ day: safeDay, month, year: includeYear ? year : undefined });
+    setOpen(false);
+  }
+
+  return (
+    <View className="mb-4">
+      <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">{props.label}{props.required ? " *" : ""}</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setOpen(true)}
+        className="min-h-[52px] justify-center rounded-input border border-grey-medium bg-grey-light px-5 py-3"
+      >
+        <Text className="font-body text-base text-deep-charcoal">{props.hijriDay && props.hijriMonth ? formatHijriDisplay(props.hijriDay, props.hijriMonth, props.hijriYear) : "Select Hijri date"}</Text>
+      </Pressable>
+      {props.helper ? <Text className="mt-1 font-body text-xs leading-5 text-grey-dark">{props.helper}</Text> : null}
+      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+        <View className="flex-1 justify-end bg-black/30">
+          <View className="max-h-[86%] rounded-t-card bg-ivory p-5">
+            <Text className="font-heading text-[28px] font-medium text-deep-charcoal">{props.label}</Text>
+            {props.allowYearOptional ? (
+              <ChoiceGrid>
+                <ChoiceButton label="I know the Hijri year" selected={includeYear} onPress={() => setIncludeYear(true)} />
+                <ChoiceButton label="Year unknown" selected={!includeYear} onPress={() => setIncludeYear(false)} />
+              </ChoiceGrid>
+            ) : null}
+            {includeYear ? (
+              <View className="my-4 flex-row items-center justify-between">
+                <QuietButton label="- Year" onPress={() => setYear((value) => value - 1)} />
+                <Text className="font-heading text-[26px] font-semibold text-deep-charcoal">{year}</Text>
+                <QuietButton label="+ Year" onPress={() => setYear((value) => value + 1)} />
+              </View>
+            ) : null}
+            <ChoiceGrid>
+              {Array.from({ length: 12 }, (_, index) => index + 1).map((item) => (
+                <ChoiceButton key={item} label={`${item} ${getHijriShortMonthName(item)}`} selected={month === item} onPress={() => setMonth(item)} />
+              ))}
+            </ChoiceGrid>
+            <ChoiceGrid>
+              {Array.from({ length: dayCount }, (_, index) => index + 1).map((item) => (
+                <ChoiceButton key={item} label={String(item)} selected={safeDay === item} onPress={() => setDay(item)} />
+              ))}
+            </ChoiceGrid>
+            <View className="gap-2">
+              <PrimaryButton label={`Use ${formatHijriDisplay(safeDay, month, includeYear ? year : undefined)}`} onPress={save} />
+              <QuietButton label="Close" onPress={() => setOpen(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 function ReminderOffsets() {
   return <InlineNotice>Reminder days: 7 days, 5 days, 2 days, 1 day, same day.</InlineNotice>;
 }
@@ -1182,13 +1490,13 @@ function formatOffset(offset: number) {
 
 function getMilestoneText(date: ImportantDate, occurrence: Date, people: Person[]) {
   if (date.type === "birthday" && date.gregorianDate) {
-    return `Turning ${calculateGregorianAge(date.gregorianDate, occurrence)}`;
+    return `${formatOrdinal(calculateGregorianAge(date.gregorianDate, occurrence))} Gregorian Birthday`;
   }
 
   if (date.type === "hijri_birthday_waras") {
     const occurrenceHijri = gregorianToHijri(occurrence);
     const age = calculateHijriAge({ hijriBirthYear: date.hijriYear, currentHijriYear: occurrenceHijri.year });
-    return age ? `Turning ${age} by Hijri age` : `Hijri date: ${formatHijriDayMonth(occurrenceHijri.month, occurrenceHijri.day)}`;
+    return age ? `${formatOrdinal(age)} Hijri Birthday (Waras)` : `Hijri date: ${formatHijriDayMonth(occurrenceHijri.month, occurrenceHijri.day)}`;
   }
 
   if (date.type === "wedding_anniversary" && date.gregorianDate) {
@@ -1197,11 +1505,11 @@ function getMilestoneText(date: ImportantDate, occurrence: Date, people: Person[
       .filter((person): person is Person => Boolean(person))
       .map(getPersonDisplayName)
       .join(" and ");
-    return `${calculateYearsMarried(date.gregorianDate, occurrence)} year Wedding Anniversary${names ? ` for ${names}` : ""}`;
+    return `${formatOrdinal(calculateYearsMarried(date.gregorianDate, occurrence))} Wedding Anniversary${names ? ` for ${names}` : ""}`;
   }
 
   if (date.gregorianDate) {
-    return `${calculateYearsSincePassing(date.gregorianDate, occurrence)} year Anniversary of passing`;
+    return `${formatOrdinal(calculateYearsSincePassing(date.gregorianDate, occurrence))} Anniversary of their passing`;
   }
 
   if (date.hijriDay && date.hijriMonth) {
@@ -1213,7 +1521,7 @@ function getMilestoneText(date: ImportantDate, occurrence: Date, people: Person[
 
 function describeImportantDate(date: ImportantDate, people: Person[]): string {
   if (date.type === "birthday" && date.gregorianDate) {
-    return `${date.gregorianDate.toLocaleDateString()} · current age ${calculateGregorianAge(date.gregorianDate)}`;
+    return `${date.gregorianDate.toLocaleDateString()} · Gregorian age today ${calculateGregorianAge(date.gregorianDate)}`;
   }
 
   if (date.type === "hijri_birthday_waras" && date.hijriDay && date.hijriMonth) {
@@ -1229,11 +1537,11 @@ function describeImportantDate(date: ImportantDate, people: Person[]): string {
       .filter((person): person is Person => Boolean(person))
       .map(getPersonDisplayName)
       .join(" and ");
-    return `${names} · ${date.gregorianDate.toLocaleDateString()} · years married ${calculateYearsMarried(date.gregorianDate)}`;
+    return `${names} · ${date.gregorianDate.toLocaleDateString()} · ${formatOrdinal(calculateYearsMarried(date.gregorianDate))} Wedding Anniversary`;
   }
 
   if (date.gregorianDate) {
-    return `${date.gregorianDate.toLocaleDateString()} · years since passing ${calculateYearsSincePassing(date.gregorianDate)}`;
+    return `${date.gregorianDate.toLocaleDateString()} · ${formatOrdinal(calculateYearsSincePassing(date.gregorianDate))} Anniversary of their passing`;
   }
 
   return "Important date";
@@ -1278,6 +1586,127 @@ function findPotentialMatches(firstName: string, lastName: string | undefined, p
   return people.filter((person) => getPersonDisplayName(person).trim().toLowerCase() === candidate);
 }
 
+function convertPublicGregorianBirthdayToHijri(
+  person: PublicPersonDraft,
+  setPeople: Dispatch<SetStateAction<PublicPersonDraft[]>>,
+  setError: (message: string) => void
+) {
+  if (!person.birthday) {
+    setError("Select a Gregorian Birthday first.");
+    return;
+  }
+  if (person.hijriDay || person.hijriMonth || person.hijriYear) {
+    setError("Hijri Birthday (Waras) is already filled.");
+    return;
+  }
+
+  const hijri = gregorianToHijri(readDate(person.birthday));
+  updatePublicPerson(setPeople, person.clientId, {
+    hijriDay: String(hijri.day),
+    hijriMonth: String(hijri.month),
+    hijriYear: String(hijri.year)
+  });
+  setError("");
+}
+
+function convertPublicHijriBirthdayToGregorian(
+  person: PublicPersonDraft,
+  setPeople: Dispatch<SetStateAction<PublicPersonDraft[]>>,
+  setError: (message: string) => void
+) {
+  const day = optionalInt(person.hijriDay);
+  const month = optionalInt(person.hijriMonth);
+  const year = optionalInt(person.hijriYear);
+  if (!day || !month || !year) {
+    setError("Select Hijri Birthday (Waras) day, month, and year before converting.");
+    return;
+  }
+  if (person.birthday) {
+    setError("Gregorian Birthday is already filled.");
+    return;
+  }
+
+  updatePublicPerson(setPeople, person.clientId, { birthday: toInputDate(hijriToGregorian({ hijriYear: year, hijriMonth: month, hijriDay: day })) });
+  setError("");
+}
+
+function getGregorianBirthdayPreview(person: PublicPersonDraft) {
+  if (!person.birthday) {
+    return "";
+  }
+  const birthday = readDate(person.birthday);
+  const next = getOccurrenceDate({
+    id: person.clientId,
+    workspaceId: "",
+    personId: person.clientId,
+    type: "birthday",
+    gregorianDate: birthday,
+    reminderDaysBefore: reminderDays
+  });
+  const age = calculateGregorianAge(birthday, next);
+  return `This will be ${publicPersonLabel(person)}'s ${formatOrdinal(age)} Gregorian Birthday on ${formatGregorianDisplay(toInputDate(next))}.`;
+}
+
+function getHijriBirthdayPreview(person: PublicPersonDraft) {
+  const day = optionalInt(person.hijriDay);
+  const month = optionalInt(person.hijriMonth);
+  const year = optionalInt(person.hijriYear);
+  if (!day || !month) {
+    return "";
+  }
+  if (!year) {
+    return "Hijri Birthday (Waras) saved without birth year. Yaadi will remind the date, but cannot calculate Hijri age.";
+  }
+  const next = getNextHijriBirthdayWarasOccurrence({ hijriDay: day, hijriMonth: month });
+  const occurrenceHijri = gregorianToHijri(next);
+  const age = calculateHijriAge({ hijriBirthYear: year, currentHijriYear: occurrenceHijri.year });
+  return age ? `This will be ${publicPersonLabel(person)}'s ${formatOrdinal(age)} Hijri Birthday (Waras).` : "";
+}
+
+function getWeddingPreview(wedding: PublicWeddingDraft) {
+  if (!wedding.weddingDate) {
+    return "";
+  }
+  const weddingDate = readDate(wedding.weddingDate);
+  const next = getOccurrenceDate({
+    id: wedding.clientId,
+    workspaceId: "",
+    personId: wedding.firstPersonClientId,
+    type: "wedding_anniversary",
+    gregorianDate: weddingDate,
+    reminderDaysBefore: reminderDays
+  });
+  return `This will be their ${formatOrdinal(calculateYearsMarried(weddingDate, next))} Wedding Anniversary.`;
+}
+
+function getPassingPreview(person: PublicPersonDraft) {
+  if (!person.passingDate) {
+    return "";
+  }
+  const passingDate = readDate(person.passingDate);
+  const next = getOccurrenceDate({
+    id: person.clientId,
+    workspaceId: "",
+    personId: person.clientId,
+    type: "passing_anniversary",
+    gregorianDate: passingDate,
+    reminderDaysBefore: reminderDays
+  });
+  return `This will be the ${formatOrdinal(calculateYearsSincePassing(passingDate, next))} Anniversary of their passing.`;
+}
+
+function getMissingDatesWarning(person: PublicPersonDraft, weddings: PublicWeddingDraft[]) {
+  const hasWedding = weddings.some((wedding) => wedding.firstPersonClientId === person.clientId || wedding.secondPersonClientId === person.clientId);
+  if (!person.birthday && !person.hijriDay && !person.passingDate && !hasWedding) {
+    return "You have not added any dates for this person. You can still submit basic details.";
+  }
+  return "";
+}
+
+function publicPersonLabel(person: PublicPersonDraft) {
+  return person.displayName.trim() || [person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ").trim() || "this person";
+}
+
 function readDate(value: string) {
   if (!isYmdString(value)) {
     throw new Error("Use date format YYYY-MM-DD, for example 1995-05-29.");
@@ -1291,6 +1720,18 @@ function toInputDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatGregorianDisplay(value: string) {
+  return readDate(value).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+}
+
+function formatHijriDisplay(day: number, month: number, year?: number) {
+  return `${day} ${getHijriMonthName(month)}${year ? ` ${year}` : ""}`;
+}
+
+function daysInGregorianMonth(year: number, month: number) {
+  return new Date(year, month, 0).getDate();
 }
 
 function readInt(value: string) {
@@ -1320,14 +1761,26 @@ function validatePublicSubmission(payload: PublicSubmissionPayload) {
   }
 
   for (const person of payload.people) {
+    if (!person.relationshipToSubmitter) {
+      return `Choose relationship to you for ${person.firstName}.`;
+    }
+    if (person.email && !isEmailLike(person.email)) {
+      return `Please check ${person.firstName}'s email address or leave it blank.`;
+    }
+    if (person.mobile && !isLooseMobile(person.mobile)) {
+      return `Please check ${person.firstName}'s mobile number or leave it blank.`;
+    }
     if (person.birthday && !isYmdString(person.birthday)) {
-      return `Use YYYY-MM-DD for ${person.firstName}'s Birthday.`;
+      return `Use the date picker for ${person.firstName}'s Gregorian Birthday.`;
     }
     if (person.passingDate && !isYmdString(person.passingDate)) {
-      return `Use YYYY-MM-DD for ${person.firstName}'s Date of Passing.`;
+      return `Use the date picker for ${person.firstName}'s Date of Passing.`;
     }
     if ((person.hijriBirthdayDay && !person.hijriBirthdayMonth) || (!person.hijriBirthdayDay && person.hijriBirthdayMonth)) {
-      return `Add both Hijri Birthday day and month for ${person.firstName}.`;
+      return `Add both Hijri Birthday (Waras) day and month for ${person.firstName}.`;
+    }
+    if ((person.passingHijriDay && !person.passingHijriMonth) || (!person.passingHijriDay && person.passingHijriMonth)) {
+      return `Add both Hijri Date of Passing day and month for ${person.firstName}.`;
     }
   }
 
@@ -1341,6 +1794,14 @@ function validatePublicSubmission(payload: PublicSubmissionPayload) {
   }
 
   return "";
+}
+
+function isEmailLike(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function isLooseMobile(value: string) {
+  return /^[+\d][\d\s().-]{6,}$/.test(value.trim());
 }
 
 function blankToUndefined(value: string) {
@@ -1393,15 +1854,23 @@ type PublicPersonDraft = {
   firstName: string;
   middleName: string;
   lastName: string;
+  displayName: string;
+  relationshipToSubmitter: string;
+  familySide: string;
   gender: string;
   livingStatus: Person["livingStatus"];
   mobile: string;
   email: string;
+  canReceiveReminders: "yes" | "no" | "not_sure";
   birthday: string;
   hijriDay: string;
   hijriMonth: string;
   hijriYear: string;
   passingDate: string;
+  passingHijriDay: string;
+  passingHijriMonth: string;
+  passingHijriYear: string;
+  createPassingReminder: boolean;
   notes: string;
 };
 
@@ -1419,15 +1888,23 @@ function newPublicPerson(): PublicPersonDraft {
     firstName: "",
     middleName: "",
     lastName: "",
+    displayName: "",
+    relationshipToSubmitter: "",
+    familySide: "",
     gender: "",
     livingStatus: "living",
     mobile: "",
     email: "",
+    canReceiveReminders: "not_sure",
     birthday: "",
     hijriDay: "",
     hijriMonth: "",
     hijriYear: "",
     passingDate: "",
+    passingHijriDay: "",
+    passingHijriMonth: "",
+    passingHijriYear: "",
+    createPassingReminder: true,
     notes: ""
   };
 }

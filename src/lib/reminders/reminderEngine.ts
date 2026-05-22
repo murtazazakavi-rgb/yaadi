@@ -147,7 +147,7 @@ export async function runReminderEngine(input: {
 export function getOccurrenceDate(importantDate: ImportantDate, today = new Date()): Date {
   if (importantDate.type === "birthday") {
     if (!importantDate.gregorianDate) {
-      throw new Error("Birthday requires a Gregorian date of birth.");
+      throw new Error("Gregorian Birthday requires a Gregorian date of birth.");
     }
 
     return getNextGregorianBirthdayOccurrence({
@@ -200,12 +200,12 @@ export function buildReminderMessage(input: {
   const timing = formatReminderTiming(input.reminderDaysBefore);
 
   if (input.importantDate.type === "birthday") {
-    const ageSuffix =
-      input.importantDate.gregorianDate
-        ? ` ${getTurningAgePronoun(input.person)} will turn ${calculateGregorianAge(input.importantDate.gregorianDate, input.occurrenceDate)}.`
-        : "";
+    const age = input.importantDate.gregorianDate
+      ? calculateGregorianAge(input.importantDate.gregorianDate, input.occurrenceDate)
+      : null;
+    const eventName = age ? `${displayName}'s ${formatOrdinal(age)} Gregorian Birthday` : `${displayName}'s Gregorian Birthday`;
 
-    return `${displayName}'s Birthday is ${timing}.${ageSuffix}`;
+    return input.reminderDaysBefore === 0 ? `This is ${eventName}.` : `${eventName} is ${timing}.`;
   }
 
   if (input.importantDate.type === "hijri_birthday_waras") {
@@ -214,8 +214,12 @@ export function buildReminderMessage(input: {
       hijriBirthYear: input.importantDate.hijriYear,
       currentHijriYear: hijriDate.year
     });
-    const ageSuffix = age ? ` Hijri age: ${age}.` : "";
-    return `${displayName}'s Hijri Birthday (Waras) is ${timing} - ${formatHijriDayMonth(hijriDate.month, hijriDate.day)}.${ageSuffix}`;
+    const eventName = age ? `${displayName}'s ${formatOrdinal(age)} Hijri Birthday (Waras)` : `${displayName}'s Hijri Birthday (Waras)`;
+    const hijriDateText = formatHijriDayMonth(hijriDate.month, hijriDate.day);
+
+    return input.reminderDaysBefore === 0
+      ? `This is ${eventName} — ${hijriDateText}.`
+      : `${eventName} is ${timing} — ${hijriDateText}.`;
   }
 
   if (input.importantDate.type === "wedding_anniversary") {
@@ -223,19 +227,22 @@ export function buildReminderMessage(input: {
       ? input.participantPeople
       : [input.person];
     const coupleName = participants.slice(0, 2).map(getPersonDisplayName).join(" and ");
-    const yearsSuffix = input.importantDate.gregorianDate
-      ? ` Years married: ${calculateYearsMarried(input.importantDate.gregorianDate, input.occurrenceDate)}.`
-      : "";
+    const years = input.importantDate.gregorianDate
+      ? calculateYearsMarried(input.importantDate.gregorianDate, input.occurrenceDate)
+      : null;
+    const eventName = years ? `${coupleName}'s ${formatOrdinal(years)} Wedding Anniversary` : `${coupleName}'s Wedding Anniversary`;
 
-    return `${coupleName}'s Wedding Anniversary is ${timing}.${yearsSuffix}`;
+    return input.reminderDaysBefore === 0 ? `This is ${eventName}.` : `${eventName} is ${timing}.`;
   }
 
   const yearsSincePassing = input.importantDate.gregorianDate
     ? calculateYearsSincePassing(input.importantDate.gregorianDate, input.occurrenceDate)
     : null;
-  const yearsSuffix = yearsSincePassing === null ? "" : ` Years since passing: ${yearsSincePassing}.`;
+  const eventName = yearsSincePassing === null
+    ? `Anniversary of ${displayName}'s passing`
+    : `the ${formatOrdinal(yearsSincePassing)} Anniversary of ${displayName}'s passing`;
 
-  return `Anniversary of ${displayName}'s passing is ${timing}.${yearsSuffix}`;
+  return input.reminderDaysBefore === 0 ? `This is ${eventName}.` : `${capitalizeFirst(eventName)} is ${timing}.`;
 }
 
 export function getPersonDisplayName(person: Person): string {
@@ -270,6 +277,28 @@ function formatReminderTiming(daysBefore: number): string {
   return `in ${daysBefore} days`;
 }
 
+export function formatOrdinal(value: number): string {
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) {
+    return `${value}th`;
+  }
+
+  switch (value % 10) {
+    case 1:
+      return `${value}st`;
+    case 2:
+      return `${value}nd`;
+    case 3:
+      return `${value}rd`;
+    default:
+      return `${value}th`;
+  }
+}
+
+function capitalizeFirst(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function getParticipantPeople(importantDate: ImportantDate, person: Person, peopleById: Map<string, Person>): Person[] {
   const participantIds = importantDate.participantPersonIds && importantDate.participantPersonIds.length > 0
     ? importantDate.participantPersonIds
@@ -278,16 +307,4 @@ function getParticipantPeople(importantDate: ImportantDate, person: Person, peop
   return participantIds
     .map((personId) => peopleById.get(personId))
     .filter((participant): participant is Person => Boolean(participant));
-}
-
-function getTurningAgePronoun(person: Person): string {
-  if (person.gender?.toLowerCase() === "female") {
-    return "She";
-  }
-
-  if (person.gender?.toLowerCase() === "male") {
-    return "He";
-  }
-
-  return "They";
 }

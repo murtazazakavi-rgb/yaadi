@@ -267,16 +267,32 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
   },
 
   async createWorkspace(name) {
-    const { data, error } = await supabase.rpc("create_family_workspace", { workspace_name: name.trim() });
-    if (error || !data) {
-      set({ error: error?.message ?? "Workspace could not be created." });
-      throw error ?? new Error("Workspace could not be created.");
+    const workspaceName = name.trim();
+    if (!workspaceName) {
+      const error = new Error("Workspace name is required.");
+      set({ error: error.message });
+      throw error;
     }
 
-    const workspace = mapWorkspace(data);
-    await get().loadWorkspaces();
-    await get().selectWorkspace(workspace.id);
-    return workspace;
+    set({ loading: true, error: undefined });
+    const { data, error } = await supabase.rpc("create_family_workspace", { workspace_name: name.trim() });
+    if (error || !data) {
+      const message = normalizeSupabaseError(error, "Workspace could not be created.");
+      set({ loading: false, error: message });
+      throw new Error(message);
+    }
+
+    try {
+      const workspace = mapWorkspace(data);
+      await get().loadWorkspaces();
+      await get().selectWorkspace(workspace.id);
+      set({ loading: false });
+      return workspace;
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Workspace was created, but could not be opened.";
+      set({ loading: false, error: message });
+      throw caught;
+    }
   },
 
   setSelectedPersonId(personId) {
@@ -285,14 +301,21 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
 
   async createPerson(input) {
     const workspace = requireWorkspace(get());
+    if (!input.firstName.trim()) {
+      const error = new Error("First name is required before saving a person.");
+      set({ error: error.message });
+      throw error;
+    }
+
     const { data, error } = await supabase
       .from("people")
       .insert(toPersonRow(workspace.id, input))
       .select("*")
       .single();
     if (error || !data) {
-      set({ error: error?.message ?? "Person could not be saved." });
-      throw error ?? new Error("Person could not be saved.");
+      const message = normalizeSupabaseError(error, "Person could not be saved.");
+      set({ error: message });
+      throw new Error(message);
     }
 
     const person = mapPerson(data);
@@ -675,8 +698,8 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
         livingStatus: personInput.livingStatus,
         mobile: personInput.mobile,
         email: personInput.email,
-        familyGroup: personInput.familyGroup,
-        notes: personInput.notes
+        familyGroup: personInput.familyGroup ?? personInput.familySide,
+        notes: buildSubmissionPersonNotes(personInput)
       });
       createdByClientId.set(personInput.clientId, person);
       await createSubmittedPersonDates(get(), person, personInput);
@@ -755,14 +778,38 @@ async function createSubmittedPersonDates(state: YaadiState, person: Person, inp
     });
   }
 
-  if (input.passingDate) {
+  if (
+    input.livingStatus === "deceased" &&
+    input.createPassingReminder !== false &&
+    (input.passingDate || (input.passingHijriDay && input.passingHijriMonth))
+  ) {
     await state.createImportantDate({
       personId: person.id,
       type: "passing_anniversary",
-      gregorianDate: parseYmd(input.passingDate),
+      gregorianDate: input.passingDate ? parseYmd(input.passingDate) : undefined,
+      hijriDay: input.passingHijriDay,
+      hijriMonth: input.passingHijriMonth,
+      hijriYear: input.passingHijriYear,
       reminderDaysBefore: [7, 5, 2, 1, 0]
     });
   }
+}
+
+function buildSubmissionPersonNotes(input: PublicSubmissionPayload["people"][number]) {
+  const details = [
+    input.notes,
+    input.relationshipToSubmitter ? `Relationship to submitter: ${input.relationshipToSubmitter}` : "",
+    input.familySide ? `Family side: ${input.familySide}` : "",
+    input.canReceiveReminders ? `Can receive reminders: ${formatReminderConsent(input.canReceiveReminders)}` : ""
+  ];
+  return details.filter(Boolean).join("\n");
+}
+
+function formatReminderConsent(value: "yes" | "no" | "not_sure") {
+  if (value === "not_sure") {
+    return "Not sure";
+  }
+  return value === "yes" ? "Yes" : "No";
 }
 
 async function reviewSubmission(
@@ -1003,4 +1050,27 @@ function optional(value?: string): string | null {
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function normalizeSupabaseError(error: { message?: string; code?: string } | null | undefined, fallback: string) {
+  const message = error?.message ?? fallback;
+  const lower = message.toLowerCase();
+
+  if (lower.includes("function") && lower.includes("create_family_workspace")) {
+    return "Workspace setup is incomplete. The create_family_workspace database function is missing.";
+  }
+  if (lower.includes("permission denied") || lower.includes("row-level security") || lower.includes("violates row-level security")) {
+    return `${fallback} You do not have permission for this workspace yet. Please sign in again or ask the workspace owner to check access.`;
+  }
+  if (lower.includes("authentication required") || lower.includes("jwt") || lower.includes("not authenticated")) {
+    return `${fallback} Please sign in again and try once more.`;
+  }
+  if (lower.includes("duplicate") || error?.code === "23505") {
+    return `${fallback} A matching record already exists.`;
+  }
+  if (lower.includes("invalid") || error?.code === "23514") {
+    return `${fallback} Some details look invalid. Please check the required fields.`;
+  }
+
+  return message;
 }
