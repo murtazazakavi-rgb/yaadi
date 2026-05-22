@@ -8,7 +8,6 @@ import { colors } from "./src/constants/theme";
 import {
   AccessManagementScreen,
   AddBirthdayScreen,
-  AddHijriBirthdayWarasScreen,
   AddPassingAnniversaryScreen,
   AddPersonScreen,
   AddWeddingAnniversaryScreen,
@@ -109,8 +108,7 @@ export default function App() {
         <RootStack.Screen name="PeopleDirectory" component={PeopleDirectoryScreen} options={{ title: "People" }} />
         <RootStack.Screen name="PersonProfile" component={PersonProfileScreen} options={{ title: "Profile" }} />
         <RootStack.Screen name="AddPerson" component={AddPersonScreen} options={{ title: "Add Person" }} />
-        <RootStack.Screen name="AddBirthday" component={AddBirthdayScreen} options={{ title: "Gregorian Birthday" }} />
-        <RootStack.Screen name="AddHijriBirthdayWaras" component={AddHijriBirthdayWarasScreen} options={{ title: "Hijri Birthday (Waras)" }} />
+        <RootStack.Screen name="AddBirthday" component={AddBirthdayScreen} options={{ title: "Birthday" }} />
         <RootStack.Screen name="AddPassingAnniversary" component={AddPassingAnniversaryScreen} options={{ title: "Anniversary" }} />
         <RootStack.Screen name="AddWeddingAnniversary" component={AddWeddingAnniversaryScreen} options={{ title: "Wedding Anniversary" }} />
         <RootStack.Screen name="UpcomingReminders" component={UpcomingRemindersScreen} options={{ title: "Upcoming reminders" }} />

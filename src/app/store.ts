@@ -780,15 +780,25 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
       notes: draft.notes
     });
 
-    if (draft.birthdayGregorianDate || (draft.birthdayHijriDay && draft.birthdayHijriMonth)) {
+    if (draft.birthdayGregorianDate) {
       await get().createImportantDate({
         personId: person.id,
-        type: draft.birthdayGregorianDate ? "birthday" : "hijri_birthday_waras",
+        type: "birthday",
         gregorianDate: draft.birthdayGregorianDate,
+        showYear: true,
+        dateSource: "confirmed",
+        reminderDaysBefore: [7, 5, 2, 1, 0]
+      });
+    }
+
+    if (draft.birthdayHijriDay && draft.birthdayHijriMonth) {
+      await get().createImportantDate({
+        personId: person.id,
+        type: "hijri_birthday_waras",
         hijriDay: draft.birthdayHijriDay,
         hijriMonth: draft.birthdayHijriMonth,
         hijriYear: draft.birthdayHijriYear,
-        showYear: Boolean(draft.birthdayGregorianDate || draft.birthdayHijriYear),
+        showYear: Boolean(draft.birthdayHijriYear),
         dateSource: "confirmed",
         reminderDaysBefore: [7, 5, 2, 1, 0]
       });

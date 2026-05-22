@@ -52,6 +52,7 @@ import { supabase } from "../lib/supabase/client";
 import { ImportantDate, Person, PersonRelationship, PublicSubmissionPayload, RelationshipType } from "../types/domain";
 
 type NavProps = any;
+type BirthdayKnowledge = "gregorian" | "hijri" | "both" | "not_sure";
 
 const reminderDays = [7, 5, 2, 1, 0];
 const emptyDemoDraft: DemoPersonDraft = {
@@ -119,6 +120,7 @@ export function PublicHomeScreen({ navigation }: NavProps) {
         </Text>
         <View className="mt-6 gap-3">
           <PrimaryButton label="Try Yaadi" onPress={() => navigation.navigate("TryDemo")} />
+          <QuietButton label="Create account" onPress={() => navigation.navigate("Auth", { mode: "signup" })} />
           <QuietButton label="Login" onPress={() => navigation.navigate("Auth", { mode: "login" })} />
         </View>
       </Card>
@@ -136,12 +138,13 @@ export function DemoScreen({ navigation }: NavProps) {
   const { demoDraft, setDemoDraft } = useYaadiStore();
   const draft = demoDraft ?? emptyDemoDraft;
   const [localDraft, setLocalDraft] = useState<DemoPersonDraft>(draft);
+  const [birthdayKnowledge, setBirthdayKnowledge] = useState<BirthdayKnowledge>(
+    draft.birthdayGregorianDate ? "gregorian" : draft.birthdayHijriDay && draft.birthdayHijriMonth ? "hijri" : "not_sure"
+  );
   const hasReminderPreview = Boolean(
     localDraft.firstName.trim() &&
       (localDraft.birthdayGregorianDate ||
-        (localDraft.birthdayHijriDay && localDraft.birthdayHijriMonth) ||
-        (localDraft.livingStatus === "deceased" &&
-          (localDraft.passingGregorianDate || (localDraft.passingHijriDay && localDraft.passingHijriMonth))))
+        (localDraft.birthdayHijriDay && localDraft.birthdayHijriMonth))
   );
 
   function updateDraft(patch: Partial<DemoPersonDraft>) {
@@ -160,26 +163,29 @@ export function DemoScreen({ navigation }: NavProps) {
         <Text className="mb-5 mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Who should Yaadi remember?</Text>
         <FormField label="First name" value={localDraft.firstName} onChangeText={(value) => updateDraft({ firstName: value })} />
         <FormField label="Last name" value={localDraft.lastName ?? ""} onChangeText={(value) => updateDraft({ lastName: value })} />
-        <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Living status</Text>
-        <ChoiceGrid>
-          <ChoiceButton label="Living" selected={localDraft.livingStatus === "living"} onPress={() => updateDraft({ livingStatus: "living" })} />
-          <ChoiceButton label="Passed away" selected={localDraft.livingStatus === "deceased"} onPress={() => updateDraft({ livingStatus: "deceased" })} />
-        </ChoiceGrid>
       </Card>
 
       <Card>
         <Badge label="Step 2" />
-        <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Add one important date</Text>
-        <Text className="mt-2 font-body text-sm leading-6 text-grey-dark">Choose either calendar. Yaadi shows the converted date automatically.</Text>
-        <DateSelectionFields
-          title="Birthday"
-          gregorianLabel="Gregorian Birthday"
-          hijriLabel="Hijri Birthday (Waras)"
+        <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Add a birthday</Text>
+        <BirthdayKnowledgeFields
+          knowledge={birthdayKnowledge}
+          onKnowledgeChange={(value) => {
+            setBirthdayKnowledge(value);
+            if (value === "gregorian") {
+              updateDraft({ birthdayHijriDay: undefined, birthdayHijriMonth: undefined, birthdayHijriYear: undefined });
+            }
+            if (value === "hijri") {
+              updateDraft({ birthdayGregorianDate: undefined });
+            }
+            if (value === "not_sure") {
+              updateDraft({ birthdayGregorianDate: undefined, birthdayHijriDay: undefined, birthdayHijriMonth: undefined, birthdayHijriYear: undefined });
+            }
+          }}
           gregorianDate={localDraft.birthdayGregorianDate}
           hijriDay={localDraft.birthdayHijriDay}
           hijriMonth={localDraft.birthdayHijriMonth}
           hijriYear={localDraft.birthdayHijriYear}
-          allowYearOptional
           onChange={(value) =>
             updateDraft({
               birthdayGregorianDate: value.gregorianDate,
@@ -189,26 +195,6 @@ export function DemoScreen({ navigation }: NavProps) {
             })
           }
         />
-        {localDraft.livingStatus === "deceased" ? (
-          <DateSelectionFields
-            title="Remembrance"
-            gregorianLabel={passingDateLabel}
-            hijriLabel={passingHijriDateLabel}
-            gregorianDate={localDraft.passingGregorianDate}
-            hijriDay={localDraft.passingHijriDay}
-            hijriMonth={localDraft.passingHijriMonth}
-            hijriYear={localDraft.passingHijriYear}
-            allowYearOptional
-            onChange={(value) =>
-              updateDraft({
-                passingGregorianDate: value.gregorianDate,
-                passingHijriDay: value.hijriDay,
-                passingHijriMonth: value.hijriMonth,
-                passingHijriYear: value.hijriYear
-              })
-            }
-          />
-        ) : null}
       </Card>
 
       <DemoReminderPreview draft={localDraft} />
@@ -220,7 +206,7 @@ export function DemoScreen({ navigation }: NavProps) {
           <PrimaryButton label="Save this in my trial" tone="green" onPress={continueToSignup} />
         </Card>
       ) : (
-        <InlineNotice>Add a name and one date to see the signup step.</InlineNotice>
+        <InlineNotice>Add a name and one birthday to see exactly what Yaadi will remind you about.</InlineNotice>
       )}
     </Screen>
   );
@@ -520,13 +506,14 @@ export function PersonProfileScreen({ navigation }: NavProps) {
         <PrimaryButton label="Add Birthday" onPress={() => navigation.navigate("AddBirthday")} />
         <PrimaryButton label="Add Wedding Anniversary" onPress={() => navigation.navigate("AddWeddingAnniversary")} />
         <PrimaryButton label="Add Anniversary of their passing" tone="purple" onPress={() => navigation.navigate("AddPassingAnniversary")} />
+        <QuietButton label="Invite family to help" onPress={() => navigation.navigate("AccessManagement")} />
       </View>
     </Screen>
   );
 }
 
 export function AddPersonScreen({ navigation, route }: NavProps) {
-  const { people, createPerson, updatePerson, createImportantDate, error } = useYaadiStore();
+  const { people, createPerson, updatePerson, error } = useYaadiStore();
   const person = people.find((item) => item.id === route?.params?.personId);
   const [firstName, setFirstName] = useState(person?.firstName ?? "");
   const [middleName, setMiddleName] = useState(person?.middleName ?? "");
@@ -539,19 +526,6 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
   const [familyGroup, setFamilyGroup] = useState(person?.familyGroup ?? "");
   const [notes, setNotes] = useState(person?.notes ?? "");
   const [showContact, setShowContact] = useState(Boolean(person?.mobile || person?.email || person?.familyGroup));
-  const [birthdayGregorianDate, setBirthdayGregorianDate] = useState<Date | undefined>();
-  const [birthdayHijriDay, setBirthdayHijriDay] = useState<number | undefined>();
-  const [birthdayHijriMonth, setBirthdayHijriMonth] = useState<number | undefined>();
-  const [birthdayHijriYear, setBirthdayHijriYear] = useState<number | undefined>();
-  const [passingGregorianDate, setPassingGregorianDate] = useState<Date | undefined>();
-  const [passingHijriDay, setPassingHijriDay] = useState<number | undefined>();
-  const [passingHijriMonth, setPassingHijriMonth] = useState<number | undefined>();
-  const [passingHijriYear, setPassingHijriYear] = useState<number | undefined>();
-  const [weddingSecondPersonId, setWeddingSecondPersonId] = useState("");
-  const [weddingGregorianDate, setWeddingGregorianDate] = useState<Date | undefined>();
-  const [weddingHijriDay, setWeddingHijriDay] = useState<number | undefined>();
-  const [weddingHijriMonth, setWeddingHijriMonth] = useState<number | undefined>();
-  const [weddingHijriYear, setWeddingHijriYear] = useState<number | undefined>();
 
   async function save() {
     clearFormError();
@@ -562,14 +536,10 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
 
     const payload = { firstName, middleName, lastName, displayName, gender, livingStatus, mobile, email, familyGroup, notes };
     try {
-      let savedPerson = person;
       if (person) {
         await updatePerson(person.id, payload);
       } else {
-        savedPerson = await createPerson(payload);
-      }
-      if (savedPerson) {
-        await saveSmartPersonDates(savedPerson.id);
+        await createPerson(payload);
       }
       navigation.replace?.("PersonProfile");
     } catch (caught) {
@@ -577,53 +547,8 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
     }
   }
 
-  async function saveSmartPersonDates(personId: string) {
-    if (birthdayGregorianDate || (birthdayHijriDay && birthdayHijriMonth)) {
-      await createImportantDate({
-        personId,
-        type: birthdayGregorianDate ? "birthday" : "hijri_birthday_waras",
-        gregorianDate: birthdayGregorianDate,
-        hijriDay: birthdayHijriDay,
-        hijriMonth: birthdayHijriMonth,
-        hijriYear: birthdayHijriYear,
-        showYear: Boolean(birthdayGregorianDate || birthdayHijriYear),
-        dateSource: "confirmed",
-        reminderDaysBefore: reminderDays
-      });
-    }
-
-    if (livingStatus === "deceased" && (passingGregorianDate || (passingHijriDay && passingHijriMonth))) {
-      await createImportantDate({
-        personId,
-        type: "passing_anniversary",
-        gregorianDate: passingGregorianDate,
-        hijriDay: passingHijriDay,
-        hijriMonth: passingHijriMonth,
-        hijriYear: passingHijriYear,
-        showYear: Boolean(passingGregorianDate || passingHijriYear),
-        dateSource: "confirmed",
-        reminderDaysBefore: reminderDays
-      });
-    }
-
-    if (weddingSecondPersonId && weddingSecondPersonId !== personId && (weddingGregorianDate || (weddingHijriDay && weddingHijriMonth))) {
-      await createImportantDate({
-        personId,
-        participantPersonIds: [personId, weddingSecondPersonId],
-        type: "wedding_anniversary",
-        gregorianDate: weddingGregorianDate,
-        hijriDay: weddingHijriDay,
-        hijriMonth: weddingHijriMonth,
-        hijriYear: weddingHijriYear,
-        showYear: Boolean(weddingGregorianDate || weddingHijriYear),
-        dateSource: "confirmed",
-        reminderDaysBefore: reminderDays
-      });
-    }
-  }
-
   return (
-    <Screen eyebrow={person ? "Edit Person" : "Add Person"} title={person ? "Update person" : "Add a family member"} subtitle="Start with the name. Yaadi will guide the next useful details.">
+    <Screen eyebrow={person ? "Edit Person" : "Add Person"} title={person ? "Update person" : "Add a family member"} subtitle="Save the person first. Yaadi will then show the best next actions.">
       <Card>
         {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
         <Badge label="Required" />
@@ -637,80 +562,9 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
           <ChoiceButton label="Living" selected={livingStatus === "living"} onPress={() => setLivingStatus("living")} />
           <ChoiceButton label="Passed away" selected={livingStatus === "deceased"} onPress={() => setLivingStatus("deceased")} />
         </ChoiceGrid>
-      </Card>
-
-      <Card>
-        <Badge label="Next best step" />
-        <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Add a birthday</Text>
-        <DateSelectionFields
-          title="Birthday"
-          gregorianLabel="Gregorian Birthday"
-          hijriLabel="Hijri Birthday (Waras)"
-          gregorianDate={birthdayGregorianDate}
-          hijriDay={birthdayHijriDay}
-          hijriMonth={birthdayHijriMonth}
-          hijriYear={birthdayHijriYear}
-          allowYearOptional
-          onChange={(value) => {
-            setBirthdayGregorianDate(value.gregorianDate);
-            setBirthdayHijriDay(value.hijriDay);
-            setBirthdayHijriMonth(value.hijriMonth);
-            setBirthdayHijriYear(value.hijriYear);
-          }}
-        />
-      </Card>
-
-      {livingStatus === "deceased" ? (
-        <Card accent={colors.passingPurple}>
-          <Badge label="Remembrance" tone="passing" />
-          <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Add passing anniversary</Text>
-          <DateSelectionFields
-            title="Anniversary of their passing"
-            gregorianLabel={passingDateLabel}
-            hijriLabel={passingHijriDateLabel}
-            gregorianDate={passingGregorianDate}
-            hijriDay={passingHijriDay}
-            hijriMonth={passingHijriMonth}
-            hijriYear={passingHijriYear}
-            allowYearOptional
-            onChange={(value) => {
-              setPassingGregorianDate(value.gregorianDate);
-              setPassingHijriDay(value.hijriDay);
-              setPassingHijriMonth(value.hijriMonth);
-              setPassingHijriYear(value.hijriYear);
-            }}
-          />
-        </Card>
-      ) : null}
-
-      {people.filter((item) => item.id !== person?.id).length > 0 ? (
-        <Card>
-          <Badge label="Optional" />
-          <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Add wedding anniversary</Text>
-          <PersonPicker label="Spouse / partner" selectedPersonId={weddingSecondPersonId} onSelect={setWeddingSecondPersonId} excludePersonId={person?.id} />
-          <DateSelectionFields
-            title="Wedding Anniversary"
-            gregorianLabel="Wedding Anniversary — Gregorian"
-            hijriLabel="Wedding Anniversary — Hijri"
-            gregorianDate={weddingGregorianDate}
-            hijriDay={weddingHijriDay}
-            hijriMonth={weddingHijriMonth}
-            hijriYear={weddingHijriYear}
-            allowYearOptional
-            onChange={(value) => {
-              setWeddingGregorianDate(value.gregorianDate);
-              setWeddingHijriDay(value.hijriDay);
-              setWeddingHijriMonth(value.hijriMonth);
-              setWeddingHijriYear(value.hijriYear);
-            }}
-          />
-        </Card>
-      ) : null}
-
-      <Card>
-        <Badge label="Optional" />
-        <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Contact and context</Text>
-        <QuietButton label={showContact ? "Hide optional fields" : "Add contact details"} onPress={() => setShowContact((value) => !value)} />
+        <View className="mt-4">
+          <QuietButton label={showContact ? "Hide optional details" : "Add optional details"} onPress={() => setShowContact((value) => !value)} />
+        </View>
         {showContact ? (
           <View className="mt-4">
             <FormField label="Gender" value={gender} onChangeText={setGender} helper="Optional. Use male or female if reminder wording should be personal." />
@@ -720,11 +574,7 @@ export function AddPersonScreen({ navigation, route }: NavProps) {
             <FormField label="Notes" value={notes} onChangeText={setNotes} multiline />
           </View>
         ) : null}
-      </Card>
-
-      <Card accent={colors.hijriGreen}>
-        <Badge label="Review" tone="waras" />
-        <Text className="my-4 font-body text-sm leading-6 text-grey-dark">{getSmartPersonSummary(firstName, birthdayGregorianDate, birthdayHijriDay, birthdayHijriMonth, passingGregorianDate, passingHijriDay, passingHijriMonth)}</Text>
+        <InlineNotice>After saving, Yaadi will suggest birthday, wedding anniversary, remembrance, and family invite actions.</InlineNotice>
         <PrimaryButton label={person ? "Save changes" : "Save person"} onPress={() => void save()} />
       </Card>
     </Screen>
@@ -735,6 +585,9 @@ export function AddBirthdayScreen({ navigation, route }: NavProps) {
   const { selectedPersonId, importantDates, createImportantDate, updateImportantDate, error } = useYaadiStore();
   const savedDate = importantDates.find((item) => item.id === route?.params?.dateId && (item.type === "birthday" || item.type === "hijri_birthday_waras"));
   const [personId, setPersonId] = useState(savedDate?.personId ?? selectedPersonId ?? "");
+  const [knowledge, setKnowledge] = useState<BirthdayKnowledge>(
+    savedDate?.type === "birthday" ? "gregorian" : savedDate?.type === "hijri_birthday_waras" ? "hijri" : "not_sure"
+  );
   const [date, setDate] = useState<Date | undefined>(savedDate?.gregorianDate);
   const [hijriDay, setHijriDay] = useState<number | undefined>(savedDate?.hijriDay);
   const [hijriMonth, setHijriMonth] = useState<number | undefined>(savedDate?.hijriMonth);
@@ -745,27 +598,67 @@ export function AddBirthdayScreen({ navigation, route }: NavProps) {
     clearFormError();
     try {
       if (!personId) {
-        throw new Error("Choose a person before saving this Gregorian Birthday.");
+        throw new Error("Choose a person before saving this birthday.");
       }
-      if (!date && (!hijriDay || !hijriMonth)) {
-        throw new Error("Choose the Birthday from the Gregorian or Hijri calendar.");
+      if (knowledge === "not_sure") {
+        throw new Error("Choose Gregorian, Hijri / Waras, or Both when you are ready to save a birthday.");
       }
-      const payload = {
+      if ((knowledge === "gregorian" || knowledge === "both") && !date) {
+        throw new Error("Choose the Gregorian birthday from the calendar.");
+      }
+      if ((knowledge === "hijri" || knowledge === "both") && (!hijriDay || !hijriMonth)) {
+        throw new Error("Choose the Hijri / Waras birthday from the calendar.");
+      }
+
+      const gregorianPayload = date ? {
         personId,
-        type: date ? "birthday" : "hijri_birthday_waras",
+        type: "birthday" as const,
         gregorianDate: date,
+        showYear: true,
+        dateSource: "confirmed" as const,
+        reminderDaysBefore: reminderDays,
+        notes
+      } : null;
+      const hijriPayload = hijriDay && hijriMonth ? {
+        personId,
+        type: "hijri_birthday_waras" as const,
         hijriDay,
         hijriMonth,
         hijriYear,
-        showYear: Boolean(date || hijriYear),
-        dateSource: "confirmed",
+        showYear: Boolean(hijriYear),
+        dateSource: "confirmed" as const,
         reminderDaysBefore: reminderDays,
         notes
-      } as const;
+      } : null;
+
       if (savedDate) {
-        await updateImportantDate(savedDate.id, payload);
+        const primaryPayload = savedDate.type === "birthday" ? gregorianPayload ?? hijriPayload : hijriPayload ?? gregorianPayload;
+        if (!primaryPayload) {
+          throw new Error("Choose a birthday date before saving.");
+        }
+        await updateImportantDate(savedDate.id, primaryPayload);
+        if (knowledge === "both") {
+          const companionPayload = savedDate.type === "birthday" ? hijriPayload : gregorianPayload;
+          if (companionPayload) {
+            const companion = importantDates.find((item) =>
+              item.id !== savedDate.id &&
+              item.personId === personId &&
+              item.type === companionPayload.type
+            );
+            if (companion) {
+              await updateImportantDate(companion.id, companionPayload);
+            } else {
+              await createImportantDate(companionPayload);
+            }
+          }
+        }
       } else {
-        await createImportantDate(payload);
+        if ((knowledge === "gregorian" || knowledge === "both") && gregorianPayload) {
+          await createImportantDate(gregorianPayload);
+        }
+        if ((knowledge === "hijri" || knowledge === "both") && hijriPayload) {
+          await createImportantDate(hijriPayload);
+        }
       }
       navigation.replace?.("Main", { screen: "Reminders" });
     } catch (caught) {
@@ -774,17 +667,31 @@ export function AddBirthdayScreen({ navigation, route }: NavProps) {
   }
 
   return (
-    <DateFormShell error={error} title={savedDate ? "Edit Birthday" : "Add Birthday"} subtitle="Choose the Gregorian or Hijri calendar. Yaadi handles the reminder preview.">
+    <DateFormShell error={error} title={savedDate ? "Edit Birthday" : "Add Birthday"} subtitle="Tell Yaadi which birthday date you know. It will handle the reminder type behind the scenes.">
       <PersonPicker label="Person" selectedPersonId={personId} onSelect={setPersonId} />
-      <DateSelectionFields
-        title="Birthday"
-        gregorianLabel="Gregorian Birthday"
-        hijriLabel="Hijri Birthday (Waras)"
+      <BirthdayKnowledgeFields
+        knowledge={knowledge}
+        onKnowledgeChange={(value) => {
+          setKnowledge(value);
+          if (value === "gregorian") {
+            setHijriDay(undefined);
+            setHijriMonth(undefined);
+            setHijriYear(undefined);
+          }
+          if (value === "hijri") {
+            setDate(undefined);
+          }
+          if (value === "not_sure") {
+            setDate(undefined);
+            setHijriDay(undefined);
+            setHijriMonth(undefined);
+            setHijriYear(undefined);
+          }
+        }}
         gregorianDate={date}
         hijriDay={hijriDay}
         hijriMonth={hijriMonth}
         hijriYear={hijriYear}
-        allowYearOptional
         onChange={(value) => {
           setDate(value.gregorianDate);
           setHijriDay(value.hijriDay);
@@ -1630,6 +1537,67 @@ type DateSelectionValue = {
   hijriMonth?: number;
   hijriYear?: number;
 };
+
+function BirthdayKnowledgeFields(props: {
+  knowledge: BirthdayKnowledge;
+  onKnowledgeChange: (value: BirthdayKnowledge) => void;
+  gregorianDate?: Date;
+  hijriDay?: number;
+  hijriMonth?: number;
+  hijriYear?: number;
+  onChange: (value: DateSelectionValue) => void;
+}) {
+  return (
+    <View className="mt-4">
+      <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">Which date do you know?</Text>
+      <ChoiceGrid>
+        <ChoiceButton label="Gregorian" selected={props.knowledge === "gregorian"} onPress={() => props.onKnowledgeChange("gregorian")} />
+        <ChoiceButton label="Hijri / Waras" selected={props.knowledge === "hijri"} onPress={() => props.onKnowledgeChange("hijri")} />
+        <ChoiceButton label="Both" selected={props.knowledge === "both"} onPress={() => props.onKnowledgeChange("both")} />
+        <ChoiceButton label="Not sure" selected={props.knowledge === "not_sure"} onPress={() => props.onKnowledgeChange("not_sure")} />
+      </ChoiceGrid>
+
+      {props.knowledge === "not_sure" ? (
+        <InlineNotice>You can save the person now and add the birthday later when the family confirms it.</InlineNotice>
+      ) : null}
+
+      {props.knowledge === "gregorian" || props.knowledge === "both" ? (
+        <GregorianDatePickerField
+          label="Gregorian Birthday"
+          value={props.gregorianDate ? toInputDate(props.gregorianDate) : ""}
+          onChange={(value) => props.onChange({ gregorianDate: readDate(value), hijriDay: props.hijriDay, hijriMonth: props.hijriMonth, hijriYear: props.hijriYear })}
+          helper={
+            props.gregorianDate
+              ? `${getConvertedHijriText(props.gregorianDate)} Yaadi will remind you every year on this Gregorian date.`
+              : "Choose the date from the Gregorian calendar."
+          }
+          required
+        />
+      ) : null}
+
+      {props.knowledge === "hijri" || props.knowledge === "both" ? (
+        <HijriDatePickerField
+          label="Hijri Birthday (Waras)"
+          hijriDay={props.hijriDay}
+          hijriMonth={props.hijriMonth}
+          hijriYear={props.hijriYear}
+          allowYearOptional
+          onChange={(value) => props.onChange({ gregorianDate: props.gregorianDate, hijriDay: value.day, hijriMonth: value.month, hijriYear: value.year })}
+          helper={
+            props.hijriDay && props.hijriMonth
+              ? `${getConvertedGregorianText(props.hijriDay, props.hijriMonth, props.hijriYear)} Yaadi will remind you every year on this Hijri / Waras date.`
+              : "Choose the date from the Hijri calendar. The year is optional."
+          }
+          required
+        />
+      ) : null}
+
+      {props.knowledge === "both" ? (
+        <InlineNotice>Yaadi will save both birthday reminders because families may observe both calendars.</InlineNotice>
+      ) : null}
+    </View>
+  );
+}
 
 function DateSelectionFields(props: {
   title: string;
@@ -2527,7 +2495,7 @@ function navigateDateEditor(navigation: NavProps["navigation"], date: ImportantD
     return;
   }
   if (date.type === "hijri_birthday_waras") {
-    navigation.navigate("AddHijriBirthdayWaras", { dateId: date.id });
+    navigation.navigate("AddBirthday", { dateId: date.id });
     return;
   }
   if (date.type === "wedding_anniversary") {
