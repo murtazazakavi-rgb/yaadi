@@ -11,18 +11,23 @@ import {
   AddHijriBirthdayWarasScreen,
   AddPassingAnniversaryScreen,
   AddPersonScreen,
+  AddWeddingAnniversaryScreen,
   AuthScreen,
   CreateWorkspaceScreen,
   DashboardScreen,
+  InviteAcceptScreen,
   PeopleDirectoryScreen,
   PersonProfileScreen,
+  PublicFamilyFormScreen,
   RelationshipLinkingScreen,
   ReminderSettingsScreen,
   SettingsScreen,
   SplashScreen,
+  SubmissionInboxScreen,
   SubscriptionPlansScreen,
   SuperAdminDashboardScreen,
   UpcomingRemindersScreen,
+  WorkspacePickerScreen,
   tabIcons
 } from "./src/app/screens";
 
@@ -64,7 +69,17 @@ function MainTabs() {
 
 export default function App() {
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      linking={{
+        prefixes: ["yaadi://", "https://yaadi-five.vercel.app"],
+        config: {
+          screens: {
+            PublicFamilyForm: "family/:token",
+            InviteAccept: "invite/:token"
+          }
+        }
+      }}
+    >
       <StatusBar style="dark" />
       <RootStack.Navigator
         initialRouteName="Splash"
@@ -83,6 +98,7 @@ export default function App() {
         <RootStack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="CreateWorkspace" component={CreateWorkspaceScreen} options={{ headerShown: false }} />
+        <RootStack.Screen name="WorkspacePicker" component={WorkspacePickerScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
         <RootStack.Screen name="PeopleDirectory" component={PeopleDirectoryScreen} options={{ title: "People" }} />
         <RootStack.Screen name="PersonProfile" component={PersonProfileScreen} options={{ title: "Profile" }} />
@@ -90,12 +106,16 @@ export default function App() {
         <RootStack.Screen name="AddBirthday" component={AddBirthdayScreen} options={{ title: "Birthday" }} />
         <RootStack.Screen name="AddHijriBirthdayWaras" component={AddHijriBirthdayWarasScreen} options={{ title: "Hijri Birthday (Waras)" }} />
         <RootStack.Screen name="AddPassingAnniversary" component={AddPassingAnniversaryScreen} options={{ title: "Anniversary" }} />
+        <RootStack.Screen name="AddWeddingAnniversary" component={AddWeddingAnniversaryScreen} options={{ title: "Wedding Anniversary" }} />
         <RootStack.Screen name="UpcomingReminders" component={UpcomingRemindersScreen} options={{ title: "Upcoming reminders" }} />
         <RootStack.Screen name="ReminderSettings" component={ReminderSettingsScreen} options={{ title: "Reminder settings" }} />
         <RootStack.Screen name="RelationshipLinking" component={RelationshipLinkingScreen} options={{ title: "Relationships" }} />
         <RootStack.Screen name="AccessManagement" component={AccessManagementScreen} options={{ title: "Access" }} />
+        <RootStack.Screen name="SubmissionInbox" component={SubmissionInboxScreen} options={{ title: "Submissions" }} />
         <RootStack.Screen name="SubscriptionPlans" component={SubscriptionPlansScreen} options={{ title: "Plans" }} />
         <RootStack.Screen name="SuperAdminDashboard" component={SuperAdminDashboardScreen} options={{ title: "Super admin" }} />
+        <RootStack.Screen name="PublicFamilyForm" component={PublicFamilyFormScreen} options={{ title: "Family details" }} />
+        <RootStack.Screen name="InviteAccept" component={InviteAcceptScreen} options={{ title: "Invitation" }} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

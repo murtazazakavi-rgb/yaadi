@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, TextInput, TextInputProps, View } from "react-native";
 import { colors } from "../constants/theme";
 
 export function Screen(props: { title?: string; subtitle?: string; eyebrow?: string; children: ReactNode }) {
@@ -88,6 +88,49 @@ export function FieldPreview(props: { label: string; value: string }) {
       <View className="min-h-[52px] justify-center rounded-input border border-grey-medium bg-grey-light px-5 py-3">
         <Text className="font-body text-base text-deep-charcoal">{props.value}</Text>
       </View>
+    </View>
+  );
+}
+
+export function FormField(props: TextInputProps & { label: string; helper?: string }) {
+  return (
+    <View className="mb-4">
+      <Text className="mb-2 font-body text-sm font-medium text-charcoal-light">{props.label}</Text>
+      <TextInput
+        {...props}
+        placeholderTextColor={colors.greyDark}
+        className={`min-h-[52px] rounded-input border border-grey-medium bg-grey-light px-5 py-3 font-body text-base text-deep-charcoal ${props.multiline ? "min-h-[104px]" : ""}`}
+        style={[{ textAlignVertical: props.multiline ? "top" : "center" }, props.style]}
+      />
+      {props.helper ? <Text className="mt-1 font-body text-xs leading-5 text-grey-dark">{props.helper}</Text> : null}
+    </View>
+  );
+}
+
+export function ChoiceButton(props: { label: string; selected?: boolean; onPress?: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={props.onPress}
+      className={`mb-2 mr-2 min-h-[42px] justify-center rounded-input border px-3 ${
+        props.selected ? "border-muted-gold bg-warm-beige" : "border-line bg-grey-light"
+      }`}
+    >
+      <Text className={`font-body text-sm ${props.selected ? "text-deep-charcoal" : "text-charcoal-light"}`}>{props.label}</Text>
+    </Pressable>
+  );
+}
+
+export function InlineNotice(props: { children: ReactNode; tone?: "error" | "quiet" }) {
+  return (
+    <View
+      className="mb-4 rounded-input border px-4 py-3"
+      style={{
+        backgroundColor: props.tone === "error" ? "rgba(171, 68, 63, 0.08)" : colors.softBeige,
+        borderColor: props.tone === "error" ? "rgba(171, 68, 63, 0.22)" : colors.border
+      }}
+    >
+      <Text className={`font-body text-sm leading-5 ${props.tone === "error" ? "text-error" : "text-charcoal-light"}`}>{props.children}</Text>
     </View>
   );
 }

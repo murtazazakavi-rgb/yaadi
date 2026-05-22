@@ -8,7 +8,9 @@ export const sampleWorkspace: FamilyWorkspace = {
   status: "active",
   planId: "22222222-2222-4222-8222-222222222222",
   subscriptionStatus: "trial",
-  trialEndsAt: makeLocalDate(2026, 6, 5)
+  trialEndsAt: makeLocalDate(2026, 6, 5),
+  timezone: "Asia/Kolkata",
+  reminderSendTime: "09:00"
 };
 
 export const samplePlans: Plan[] = [

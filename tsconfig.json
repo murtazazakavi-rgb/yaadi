@@ -8,5 +8,6 @@
     },
     "types": ["node"]
   },
-  "include": ["App.tsx", "src", "supabase", "nativewind-env.d.ts"]
+  "include": ["App.tsx", "src", "supabase/migrations", "nativewind-env.d.ts"],
+  "exclude": ["supabase/functions"]
 }

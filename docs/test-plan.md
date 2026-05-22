@@ -12,6 +12,7 @@
 - Missing Hijri birth year returns `null` Hijri age.
 - Anniversary of their passing by Gregorian date.
 - Anniversary of their passing by Hijri date.
+- Next Wedding Anniversary occurrence and years married.
 
 ## Reminder Engine
 
@@ -20,6 +21,8 @@
 - Expired trials stop reminder creation.
 - Inactive workspaces are skipped.
 - Push/email channels are logged separately.
+- Birthday reminder age is sent when the date of birth year exists.
+- Wedding Anniversary messages include both people and years married.
 
 ## Supabase
 
@@ -28,10 +31,13 @@
 - RLS: Viewer is read-only.
 - RLS: Super Admin can access all workspaces.
 - Plan limits are enforced before add/invite actions.
+- Public family form tokens can be disabled or replaced.
+- Public submissions cannot read or mutate live workspace records.
 
 ## Mobile
 
 - Splash -> Auth -> Create workspace -> Dashboard.
+- Permanent `/family/:token` form accepts a batch and review inbox approves it.
 - Dashboard quick actions navigate to person-first flows.
 - Add Person precedes date entry.
 - UI uses "Hijri Birthday (Waras)" everywhere.

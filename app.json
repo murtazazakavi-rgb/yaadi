@@ -11,6 +11,7 @@
       "output": "single"
     },
     "assetBundlePatterns": ["**/*"],
+    "plugins": ["expo-notifications"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.yaadi.mobile"

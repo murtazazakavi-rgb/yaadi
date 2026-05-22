@@ -87,6 +87,58 @@ describe("runReminderEngine", () => {
     assert.equal(result.skippedWorkspaces, 1);
     assert.equal(result.createdLogs.length, 0);
   });
+
+  it("includes Birthday age even when the year is hidden", async () => {
+    const result = await runReminderEngine({
+      repository: createRepository({
+        importantDates: [
+          {
+            ...baseImportantDate,
+            showYear: false,
+            gregorianDate: makeLocalDate(1995, 5, 29),
+            reminderDaysBefore: [7]
+          }
+        ],
+        people: [{ ...basePerson, gender: "female" }]
+      }),
+      today: makeLocalDate(2026, 5, 22),
+      channels: ["email"]
+    });
+
+    assert.equal(result.candidates[0]?.message, "Fatema Ben's Birthday is in 7 days. She will turn 31.");
+  });
+
+  it("builds Wedding Anniversary reminders for both participants", async () => {
+    const result = await runReminderEngine({
+      repository: createRepository({
+        importantDates: [
+          {
+            ...baseImportantDate,
+            type: "wedding_anniversary",
+            gregorianDate: makeLocalDate(2014, 5, 29),
+            participantPersonIds: ["person-1", "person-2"],
+            reminderDaysBefore: [7]
+          }
+        ],
+        people: [
+          basePerson,
+          {
+            ...basePerson,
+            id: "person-2",
+            firstName: "Murtaza",
+            lastName: "Bhai"
+          }
+        ]
+      }),
+      today: makeLocalDate(2026, 5, 22),
+      channels: ["email"]
+    });
+
+    assert.equal(
+      result.candidates[0]?.message,
+      "Fatema Ben and Murtaza Bhai's Wedding Anniversary is in 7 days. Years married: 12."
+    );
+  });
 });
 
 const baseWorkspace: FamilyWorkspace = {
@@ -94,7 +146,9 @@ const baseWorkspace: FamilyWorkspace = {
   name: "Murtaza Family",
   ownerUserId: "user-1",
   status: "active",
-  subscriptionStatus: "active"
+  subscriptionStatus: "active",
+  timezone: "Asia/Kolkata",
+  reminderSendTime: "09:00"
 };
 
 const basePerson: Person = {

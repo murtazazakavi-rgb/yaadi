@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run export:web",
+  "buildCommand": "EXPO_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY EXPO_PUBLIC_APP_URL=https://yaadi-five.vercel.app npm run export:web",
   "outputDirectory": "dist",
   "devCommand": "expo",
   "cleanUrls": true,

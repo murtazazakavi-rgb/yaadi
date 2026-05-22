@@ -4,12 +4,14 @@ import { HijriCalendar } from "../hijriCalendar";
 import { HijriDate } from "../hijriDate";
 import {
   calculateGregorianAge,
+  calculateYearsMarried,
   calculateHijriAge,
   calculateYearsSincePassing,
   daysUntil,
   getNextGregorianBirthdayOccurrence,
   getNextHijriBirthdayWarasOccurrence,
   getNextPassingAnniversaryOccurrence,
+  getNextWeddingAnniversaryOccurrence,
   gregorianToHijri,
   hijriToGregorian,
   makeLocalDate
@@ -181,6 +183,18 @@ describe("Yaadi date occurrence behavior", () => {
     assert.equal(calculateGregorianAge(makeLocalDate(1995, 5, 1), makeLocalDate(2026, 5, 22)), 31);
     assert.equal(calculateYearsSincePassing(makeLocalDate(2020, 5, 23), makeLocalDate(2026, 5, 22)), 5);
     assert.equal(daysUntil(makeLocalDate(2026, 5, 29), makeLocalDate(2026, 5, 22)), 7);
+  });
+
+  it("gets the next Wedding Anniversary occurrence and years married", () => {
+    const weddingDate = makeLocalDate(2014, 6, 2);
+    assert.deepEqual(
+      getNextWeddingAnniversaryOccurrence({
+        weddingDate,
+        today: makeLocalDate(2026, 5, 22)
+      }),
+      makeLocalDate(2026, 6, 2)
+    );
+    assert.equal(calculateYearsMarried(weddingDate, makeLocalDate(2026, 6, 2)), 12);
   });
 });
 

@@ -10,8 +10,8 @@ import {
   getNextWeddingAnniversaryOccurrence,
   gregorianToHijri,
   startOfLocalDay
-} from "../calendar/dateConversion";
-import { FamilyWorkspace, ImportantDate, Person, ReminderChannel, ReminderLog } from "../../types/domain";
+} from "./dateConversion.ts";
+import { FamilyWorkspace, ImportantDate, Person, ReminderChannel, ReminderLog } from "./domain.ts";
 
 const DEFAULT_REMINDER_DAYS = [7, 5, 2, 1, 0] as const;
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["trial", "active"]);

@@ -1,5 +1,5 @@
-import { GregorianDateResult, HijriDate, HijriDateResult } from "./hijriDate";
-import { getHijriShortMonthName, toInternalHijriMonth } from "./hijriMonths";
+import { GregorianDateResult, HijriDate, HijriDateResult } from "./hijriDate.ts";
+import { getHijriShortMonthName, toInternalHijriMonth } from "./hijriMonths.ts";
 
 export type HijriDateInput = {
   year?: number;

@@ -2,7 +2,7 @@
 
 Yaadi is a mobile-first, private family reminder SaaS. The product model is person-first:
 
-Add Person -> Add Birthday / Hijri Birthday (Waras) / Anniversary of their passing -> Set reminder days -> View upcoming reminders.
+Add Person -> Add Birthday / Hijri Birthday (Waras) / Wedding Anniversary / Anniversary of their passing -> Set reminder days -> View upcoming reminders.
 
 ## Mobile App
 
@@ -29,6 +29,8 @@ Supabase stores all family data in workspace-scoped tables. Every tenant-owned t
 - Viewers to read workspace records when invited.
 - Non-members to see nothing.
 
+Wedding Anniversary uses important-date participants so one reminder event can appear on two person profiles. Every workspace also owns a permanent family form link. Public form submissions are written into a review inbox through a token-scoped RPC; owners/admins approve them into live people and dates.
+
 ## Reminder Flow
 
 1. Scheduled job loads active workspaces.
@@ -37,6 +39,8 @@ Supabase stores all family data in workspace-scoped tables. Every tenant-owned t
 4. The engine checks `7, 5, 2, 1, 0` day offsets.
 5. `reminder_logs` prevents duplicates.
 6. Notification providers send push/email in v1.
+
+Email delivery uses a Gmail test provider inside Supabase Edge Functions for early verification. Expo push token registration is workspace-scoped and stores owner/admin device tokens before server delivery.
 
 ## Subscription Flow
 
