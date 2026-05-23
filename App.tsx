@@ -12,21 +12,16 @@ import {
   AddPersonScreen,
   AddWeddingAnniversaryScreen,
   AuthScreen,
-  CreateWorkspaceScreen,
   DashboardScreen,
-  DemoScreen,
   InviteAcceptScreen,
+  NoWorkspaceScreen,
   PeopleDirectoryScreen,
   PersonProfileScreen,
-  PublicHomeScreen,
   PublicFamilyFormScreen,
   RelationshipLinkingScreen,
   ReminderSettingsScreen,
   SettingsScreen,
-  SplashScreen,
   SubmissionInboxScreen,
-  SubscriptionPlansScreen,
-  TrialPlanScreen,
   SuperAdminDashboardScreen,
   UpcomingRemindersScreen,
   WorkspacePickerScreen,
@@ -84,7 +79,7 @@ export default function App() {
     >
       <StatusBar style="dark" />
       <RootStack.Navigator
-        initialRouteName="PublicHome"
+        initialRouteName="Auth"
         screenOptions={{
           headerStyle: { backgroundColor: colors.ivory },
           headerTintColor: colors.charcoal,
@@ -97,12 +92,8 @@ export default function App() {
           contentStyle: { backgroundColor: colors.ivory }
         }}
       >
-        <RootStack.Screen name="PublicHome" component={PublicHomeScreen} options={{ headerShown: false }} />
-        <RootStack.Screen name="TryDemo" component={DemoScreen} options={{ headerShown: false }} />
-        <RootStack.Screen name="TrialPlan" component={TrialPlanScreen} options={{ headerShown: false }} />
-        <RootStack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
-        <RootStack.Screen name="CreateWorkspace" component={CreateWorkspaceScreen} options={{ headerShown: false }} />
+        <RootStack.Screen name="NoWorkspace" component={NoWorkspaceScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="WorkspacePicker" component={WorkspacePickerScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
         <RootStack.Screen name="PeopleDirectory" component={PeopleDirectoryScreen} options={{ title: "People" }} />
@@ -116,7 +107,6 @@ export default function App() {
         <RootStack.Screen name="RelationshipLinking" component={RelationshipLinkingScreen} options={{ title: "Relationships" }} />
         <RootStack.Screen name="AccessManagement" component={AccessManagementScreen} options={{ title: "Access" }} />
         <RootStack.Screen name="SubmissionInbox" component={SubmissionInboxScreen} options={{ title: "Submissions" }} />
-        <RootStack.Screen name="SubscriptionPlans" component={SubscriptionPlansScreen} options={{ title: "Plans" }} />
         <RootStack.Screen name="SuperAdminDashboard" component={SuperAdminDashboardScreen} options={{ title: "Super admin" }} />
         <RootStack.Screen name="PublicFamilyForm" component={PublicFamilyFormScreen} options={{ title: "Family details" }} />
         <RootStack.Screen name="InviteAccept" component={InviteAcceptScreen} options={{ title: "Invitation" }} />

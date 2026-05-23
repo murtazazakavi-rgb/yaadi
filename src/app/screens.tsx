@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CalendarHeart,
   CalendarPlus,
-  Crown,
   Heart,
   Home,
   Link2,
@@ -13,10 +12,9 @@ import {
   Settings,
   ShieldCheck,
   UserRoundPlus,
-  Users,
-  WalletCards
+  Users
 } from "lucide-react-native";
-import { APP_NAME, APP_TAGLINE, importantDateLabels, passingDateLabel, passingHijriDateLabel } from "../constants/copy";
+import { APP_NAME, importantDateLabels, passingDateLabel, passingHijriDateLabel } from "../constants/copy";
 import { colors } from "../constants/theme";
 import {
   Badge,
@@ -31,7 +29,7 @@ import {
   SectionTitle,
   StatPill
 } from "../components/ui";
-import { DemoPersonDraft, useYaadiStore } from "./store";
+import { useYaadiStore } from "./store";
 import {
   calculateGregorianAge,
   calculateHijriAge,
@@ -55,10 +53,6 @@ type NavProps = any;
 type BirthdayKnowledge = "gregorian" | "hijri" | "both" | "not_sure";
 
 const reminderDays = [7, 5, 2, 1, 0];
-const emptyDemoDraft: DemoPersonDraft = {
-  firstName: "",
-  livingStatus: "living"
-};
 const submitterRelationOptions = ["Self", "Father's side", "Mother's side", "Spouse's side", "In-law", "Friend", "Other"];
 const relationshipToSubmitterOptions = [
   "Self",
@@ -84,185 +78,10 @@ const reminderConsentOptions: Array<[PublicPersonDraft["canReceiveReminders"], s
   ["not_sure", "Not sure"]
 ];
 
-export function PublicHomeScreen({ navigation }: NavProps) {
-  const { bootstrap, initialized, session, workspaces } = useYaadiStore();
-
-  useEffect(() => {
-    if (!initialized) {
-      void bootstrap();
-    }
-  }, [bootstrap, initialized]);
-
-  useEffect(() => {
-    if (!session) {
-      return;
-    }
-    if (workspaces.length === 0) {
-      navigation.replace?.("TrialPlan");
-      return;
-    }
-    if (workspaces.length === 1) {
-      void useYaadiStore.getState().selectWorkspace(workspaces[0].id).then(() => navigation.replace?.("Main"));
-      return;
-    }
-    navigation.replace?.("WorkspacePicker");
-  }, [navigation, session, workspaces]);
-
-  return (
-    <Screen eyebrow="Private family reminders" title={APP_NAME} subtitle="Try the reminder flow before you create an account.">
-      <Card accent={colors.goldLight}>
-        <View className="h-14 w-14 items-center justify-center rounded-input bg-grey-light">
-          <Heart color={colors.goldDark} size={24} strokeWidth={1.8} />
-        </View>
-        <Text className="mt-6 font-heading text-[32px] font-semibold leading-9 text-deep-charcoal">See how Yaadi remembers with you</Text>
-        <Text className="mt-3 font-body text-base leading-6 text-charcoal-light">
-          Add a person, choose a Gregorian or Hijri date, and preview the reminder before signing up.
-        </Text>
-        <View className="mt-6 gap-3">
-          <PrimaryButton label="Try Yaadi" onPress={() => navigation.navigate("TryDemo")} />
-          <QuietButton label="Create account" onPress={() => navigation.navigate("Auth", { mode: "signup" })} />
-          <QuietButton label="Login" onPress={() => navigation.navigate("Auth", { mode: "login" })} />
-        </View>
-      </Card>
-      <View className="flex-row flex-wrap justify-between">
-        <FeatureTile icon={Users} title="People first" text="Save family members in a private workspace." />
-        <FeatureTile icon={CalendarDays} title="Both calendars" text="Pick Gregorian or Hijri dates without typing formats." />
-        <FeatureTile icon={BellRing} title="Reminder previews" text="See what Yaadi will remind you before saving." />
-        <FeatureTile icon={ShieldCheck} title="Private by design" text="Demo data stays local until you create a workspace." />
-      </View>
-    </Screen>
-  );
-}
-
-export function DemoScreen({ navigation }: NavProps) {
-  const { demoDraft, setDemoDraft } = useYaadiStore();
-  const draft = demoDraft ?? emptyDemoDraft;
-  const [localDraft, setLocalDraft] = useState<DemoPersonDraft>(draft);
-  const [birthdayKnowledge, setBirthdayKnowledge] = useState<BirthdayKnowledge>(
-    draft.birthdayGregorianDate ? "gregorian" : draft.birthdayHijriDay && draft.birthdayHijriMonth ? "hijri" : "not_sure"
-  );
-  const hasReminderPreview = Boolean(
-    localDraft.firstName.trim() &&
-      (localDraft.birthdayGregorianDate ||
-        (localDraft.birthdayHijriDay && localDraft.birthdayHijriMonth))
-  );
-
-  function updateDraft(patch: Partial<DemoPersonDraft>) {
-    setLocalDraft((current) => ({ ...current, ...patch }));
-  }
-
-  function continueToSignup() {
-    setDemoDraft(localDraft);
-    navigation.navigate("Auth", { mode: "signup", fromDemo: true });
-  }
-
-  return (
-    <Screen eyebrow="Try Yaadi" title="Create a sample reminder" subtitle="Nothing is uploaded yet. This becomes your first workspace data only after signup.">
-      <Card accent={colors.goldLight}>
-        <Badge label="Step 1" />
-        <Text className="mb-5 mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Who should Yaadi remember?</Text>
-        <FormField label="First name" value={localDraft.firstName} onChangeText={(value) => updateDraft({ firstName: value })} />
-        <FormField label="Last name" value={localDraft.lastName ?? ""} onChangeText={(value) => updateDraft({ lastName: value })} />
-      </Card>
-
-      <Card>
-        <Badge label="Step 2" />
-        <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Add a birthday</Text>
-        <BirthdayKnowledgeFields
-          knowledge={birthdayKnowledge}
-          onKnowledgeChange={(value) => {
-            setBirthdayKnowledge(value);
-            if (value === "gregorian") {
-              updateDraft({ birthdayHijriDay: undefined, birthdayHijriMonth: undefined, birthdayHijriYear: undefined });
-            }
-            if (value === "hijri") {
-              updateDraft({ birthdayGregorianDate: undefined });
-            }
-            if (value === "not_sure") {
-              updateDraft({ birthdayGregorianDate: undefined, birthdayHijriDay: undefined, birthdayHijriMonth: undefined, birthdayHijriYear: undefined });
-            }
-          }}
-          gregorianDate={localDraft.birthdayGregorianDate}
-          hijriDay={localDraft.birthdayHijriDay}
-          hijriMonth={localDraft.birthdayHijriMonth}
-          hijriYear={localDraft.birthdayHijriYear}
-          onChange={(value) =>
-            updateDraft({
-              birthdayGregorianDate: value.gregorianDate,
-              birthdayHijriDay: value.hijriDay,
-              birthdayHijriMonth: value.hijriMonth,
-              birthdayHijriYear: value.hijriYear
-            })
-          }
-        />
-      </Card>
-
-      <DemoReminderPreview draft={localDraft} />
-      {hasReminderPreview ? (
-        <Card accent={colors.hijriGreen}>
-          <Badge label="Ready" tone="waras" />
-          <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Your first reminder is ready</Text>
-          <Text className="mb-5 mt-2 font-body text-sm leading-6 text-grey-dark">Create a 14-day trial workspace and Yaadi will save this person there.</Text>
-          <PrimaryButton label="Save this in my trial" tone="green" onPress={continueToSignup} />
-        </Card>
-      ) : (
-        <InlineNotice>Add a name and one birthday to see exactly what Yaadi will remind you about.</InlineNotice>
-      )}
-    </Screen>
-  );
-}
-
-export function TrialPlanScreen({ navigation }: NavProps) {
-  return (
-    <Screen eyebrow="14-day trial" title="Start with Basic Trial" subtitle="Create a private workspace after signup. No payment is needed for this first trial.">
-      <Card accent={colors.goldLight}>
-        <View className="flex-row items-start justify-between">
-          <Badge label="Basic Trial" />
-          <Crown color={colors.goldDark} size={22} strokeWidth={1.8} />
-        </View>
-        <Text className="mt-5 font-heading text-[32px] font-semibold leading-9 text-deep-charcoal">14 days to try Yaadi with your family</Text>
-        <View className="mt-5">
-          <StatPill label="People" value="10" />
-          <StatPill label="Admins" value="1" />
-          <StatPill label="Reminder days" value="7,5,2,1,0" />
-        </View>
-        <View className="mt-6 gap-3">
-          <PrimaryButton label="Create workspace" onPress={() => navigation.replace?.("CreateWorkspace")} />
-          <QuietButton label="Back to demo" onPress={() => navigation.navigate("TryDemo")} />
-        </View>
-      </Card>
-    </Screen>
-  );
-}
-
-export function SplashScreen({ navigation }: NavProps) {
-  return (
-    <View className="flex-1 justify-between bg-ivory px-8 py-10">
-      <View className="items-center pt-12">
-        <View className="h-px w-20 bg-muted-gold" />
-        <View className="mt-18 h-28 w-28 items-center justify-center rounded-full border border-line bg-cream shadow-soft">
-          <View className="h-[88px] w-[88px] items-center justify-center rounded-full border border-gold-light bg-grey-light">
-            <Heart color={colors.goldDark} size={34} strokeWidth={1.8} />
-          </View>
-        </View>
-        <Text className="mt-10 font-heading text-[58px] font-semibold leading-[60px] text-deep-charcoal">{APP_NAME}</Text>
-        <Text className="mt-3 max-w-[320px] text-center font-body text-lg leading-7 text-charcoal-light">{APP_TAGLINE}</Text>
-      </View>
-      <View>
-        <PrimaryButton label="Continue" onPress={() => navigation.replace?.("Auth")} />
-        <Text className="mt-5 text-center font-body text-sm text-grey-dark">Private reminders for the people you hold close.</Text>
-      </View>
-    </View>
-  );
-}
-
-export function AuthScreen({ navigation, route }: NavProps) {
-  const { bootstrap, initialized, session, workspaces, signIn, signUp, resetPassword, error, loading } = useYaadiStore();
-  const [mode, setMode] = useState<"login" | "signup">(route?.params?.mode ?? "login");
+export function AuthScreen({ navigation }: NavProps) {
+  const { bootstrap, initialized, session, workspaces, signIn, resetPassword, error, loading } = useYaadiStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -277,7 +96,7 @@ export function AuthScreen({ navigation, route }: NavProps) {
     }
 
     if (workspaces.length === 0) {
-      navigation.replace?.("TrialPlan");
+      navigation.replace?.("NoWorkspace");
       return;
     }
 
@@ -292,78 +111,45 @@ export function AuthScreen({ navigation, route }: NavProps) {
   async function submit() {
     setNotice("");
     try {
-      if (mode === "signup") {
-        await signUp(email, password, firstName, lastName);
-        if (!useYaadiStore.getState().session) {
-          setNotice("Account created. Confirm your email if Supabase email confirmation is enabled, then log in.");
-        }
-      } else {
-        await signIn(email, password);
-      }
+      await signIn(email, password);
     } catch {
       // Store error is rendered below.
     }
   }
 
   return (
-    <Screen eyebrow="Private workspace" title={route?.params?.fromDemo ? "Save your demo" : "Welcome to Yaadi"} subtitle={APP_TAGLINE}>
+    <Screen eyebrow="Private family workspace" title="Login to Yaadi" subtitle="Use the login details shared by your Yaadi admin.">
       <Card>
-        <Badge label={mode === "login" ? "Family access" : "Create account"} />
-        <Text className="mb-5 mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">
-          {mode === "login" ? "Sign in to your family space" : "Start a private family space"}
-        </Text>
+        <Badge label="Family access" />
+        <Text className="mb-5 mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">Sign in to your family space</Text>
         {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
         {notice ? <InlineNotice>{notice}</InlineNotice> : null}
-        {mode === "signup" ? (
-          <View className="flex-row gap-3">
-            <View className="flex-1"><FormField label="First name" value={firstName} onChangeText={setFirstName} /></View>
-            <View className="flex-1"><FormField label="Last name" value={lastName} onChangeText={setLastName} /></View>
-          </View>
-        ) : null}
-        <FormField label="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
-        <FormField label="Password" secureTextEntry value={password} onChangeText={setPassword} helper="Use at least 6 characters." />
-        <PrimaryButton label={loading ? "Working..." : mode === "login" ? "Login" : "Create account"} onPress={() => void submit()} />
+        <FormField label="Email / User ID" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+        <FormField label="Password" secureTextEntry value={password} onChangeText={setPassword} />
+        <PrimaryButton label={loading ? "Logging in..." : "Login"} onPress={() => void submit()} />
         <View className="mt-3 gap-2">
-          <QuietButton label={mode === "login" ? "Create an account" : "Back to login"} onPress={() => setMode(mode === "login" ? "signup" : "login")} />
-          {mode === "login" ? (
-            <QuietButton
-              label="Email password reset"
-              onPress={() => void resetPassword(email).then(() => setNotice("Password reset email requested."))}
-            />
-          ) : null}
+          <QuietButton
+            label="Email password reset"
+            onPress={() => void resetPassword(email).then(() => setNotice("Password reset email requested."))}
+          />
         </View>
       </Card>
     </Screen>
   );
 }
 
-export function CreateWorkspaceScreen({ navigation }: NavProps) {
-  const { createWorkspace, importDemoDraft, demoDraft, error, loading } = useYaadiStore();
-  const [name, setName] = useState("");
-
-  async function submit() {
-    try {
-      await createWorkspace(name);
-      await importDemoDraft();
-      navigation.replace?.("Main");
-    } catch {
-      // Store error is rendered.
-    }
-  }
-
+export function NoWorkspaceScreen({ navigation }: NavProps) {
+  const { signOut, session } = useYaadiStore();
   return (
-    <Screen eyebrow="Step 1" title="Create family workspace" subtitle="Start with your family, then add people and their important dates.">
+    <Screen eyebrow="Workspace access" title="No workspace assigned" subtitle="This login is active, but no family workspace has been assigned to it yet.">
       <Card>
-        <Badge label="14 day trial" />
-        <Text className="mb-5 mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">A calm home for family dates</Text>
-        {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
-        <FormField label="Workspace name" placeholder="Murtaza Family" value={name} onChangeText={setName} />
-        <InlineNotice>
-          {demoDraft?.firstName
-            ? `Trial access begins with up to 10 people. ${demoDraft.firstName}'s demo reminder will be saved here.`
-            : "Trial access begins with up to 10 people and reminder channels enabled."}
-        </InlineNotice>
-        <PrimaryButton label={loading ? "Creating..." : "Create workspace"} onPress={() => void submit()} />
+        <Badge label="Admin setup needed" />
+        <Text className="mt-4 font-body text-base leading-6 text-charcoal-light">
+          Contact your Yaadi admin and ask them to assign a workspace to {session?.user.email ?? "this login"}.
+        </Text>
+        <View className="mt-5 gap-3">
+          <PrimaryButton label="Back to login" onPress={() => void signOut().then(() => navigation.replace?.("Auth"))} />
+        </View>
       </Card>
     </Screen>
   );
@@ -383,7 +169,6 @@ export function WorkspacePickerScreen({ navigation }: NavProps) {
           />
         </Card>
       ))}
-      <QuietButton label="Create another workspace" onPress={() => navigation.navigate("CreateWorkspace")} />
     </Screen>
   );
 }
@@ -1456,34 +1241,12 @@ export function InviteAcceptScreen({ navigation, route }: NavProps) {
   );
 }
 
-export function SubscriptionPlansScreen() {
-  const { plans, workspace } = useYaadiStore();
-  return (
-    <Screen eyebrow="Workspace plans" title="Subscription plans" subtitle="Subscriptions belong to the family workspace. Checkout is deferred while trial gates are functional.">
-      {plans.map((plan) => (
-        <Card key={plan.id} accent={plan.name === "Family Plus" ? colors.mutedGold : colors.border}>
-          <View className="flex-row items-center justify-between">
-            <Badge label={plan.id === workspace?.planId ? "Current trial" : plan.name === "Family Plus" ? "Recommended" : "Family plan"} />
-            {plan.name === "Family Plus" ? <Crown color={colors.goldDark} size={22} strokeWidth={1.8} /> : null}
-          </View>
-          <Text className="mt-5 font-heading text-[30px] font-medium leading-8 text-deep-charcoal">{plan.name}</Text>
-          <Text className="mt-3 font-body text-base text-deep-charcoal">Rs {plan.priceMonthly}/month · Rs {plan.priceYearly}/year</Text>
-          <Text className="mt-2 font-body text-sm leading-6 text-grey-dark">
-            Up to {plan.maxPeople} people · {plan.maxAdmins} admin{plan.maxAdmins > 1 ? "s" : ""} · {plan.exportEnabled ? "Export data" : "Core reminders"}
-          </Text>
-        </Card>
-      ))}
-    </Screen>
-  );
-}
-
 export function SettingsScreen({ navigation }: NavProps) {
   const { signOut } = useYaadiStore();
   return (
     <Screen eyebrow="Workspace" title="Settings" subtitle="Workspace preferences, access, and account tools.">
       <View className="gap-3">
         <QuietButton label="Reminder settings" onPress={() => navigation.navigate("ReminderSettings")} />
-        <QuietButton label="Subscription plans" onPress={() => navigation.navigate("SubscriptionPlans")} />
         <QuietButton label="Access management" onPress={() => navigation.navigate("AccessManagement")} />
         <QuietButton label="Sign out" onPress={() => void signOut().then(() => navigation.replace?.("Auth"))} />
       </View>
@@ -1515,19 +1278,6 @@ function DateFormShell(props: { title: string; subtitle: string; error?: string;
         {props.children}
       </Card>
     </Screen>
-  );
-}
-
-function FeatureTile(props: { icon: typeof Users; title: string; text: string }) {
-  const Icon = props.icon;
-  return (
-    <View className="mb-3 min-h-[132px] w-[48%] rounded-card border border-line bg-cream p-4">
-      <View className="h-10 w-10 items-center justify-center rounded-input bg-grey-light">
-        <Icon color={colors.goldDark} size={19} strokeWidth={1.8} />
-      </View>
-      <Text className="mt-4 font-body text-base font-medium leading-5 text-deep-charcoal">{props.title}</Text>
-      <Text className="mt-2 font-body text-sm leading-5 text-grey-dark">{props.text}</Text>
-    </View>
   );
 }
 
@@ -1641,26 +1391,6 @@ function DateSelectionFields(props: {
         />
       )}
     </View>
-  );
-}
-
-function DemoReminderPreview(props: { draft: DemoPersonDraft }) {
-  const person = demoDraftToPerson(props.draft);
-  const date = demoDraftToImportantDate(props.draft);
-  if (!person || !date) {
-    return null;
-  }
-  const occurrence = getOccurrenceDate(date);
-  const offset = daysUntil(occurrence);
-  return (
-    <Card accent={getToneColor(date.type === "hijri_birthday_waras" ? "waras" : date.type === "passing_anniversary" ? "passing" : "birthday")}>
-      <Badge label="Preview" />
-      <Text className="mt-4 font-heading text-[28px] font-medium leading-8 text-deep-charcoal">{importantDateLabels[date.type]}</Text>
-      <Text className="mt-2 font-body text-base leading-6 text-charcoal-light">
-        {buildReminderMessage({ importantDate: date, person, occurrenceDate: occurrence, reminderDaysBefore: offset })}
-      </Text>
-      <Text className="mt-3 font-body text-sm font-medium text-gold-dark">{occurrence.toLocaleDateString()} · {formatOffset(offset)}</Text>
-    </Card>
   );
 }
 
@@ -1859,59 +1589,6 @@ function ReminderPreview(props: {
       <Text className="mt-3 font-body text-sm font-medium text-gold-dark">{props.milestone}</Text>
     </Card>
   );
-}
-
-function demoDraftToPerson(draft: DemoPersonDraft): Person | null {
-  if (!draft.firstName.trim()) {
-    return null;
-  }
-  return {
-    id: "demo-person",
-    workspaceId: "demo-workspace",
-    firstName: draft.firstName,
-    middleName: draft.middleName,
-    lastName: draft.lastName,
-    displayName: draft.displayName,
-    livingStatus: draft.livingStatus,
-    mobile: draft.mobile,
-    email: draft.email,
-    familyGroup: draft.familyGroup,
-    notes: draft.notes
-  };
-}
-
-function demoDraftToImportantDate(draft: DemoPersonDraft): ImportantDate | null {
-  if (draft.birthdayGregorianDate || (draft.birthdayHijriDay && draft.birthdayHijriMonth)) {
-    return {
-      id: "demo-date",
-      workspaceId: "demo-workspace",
-      personId: "demo-person",
-      type: draft.birthdayGregorianDate ? "birthday" : "hijri_birthday_waras",
-      gregorianDate: draft.birthdayGregorianDate,
-      hijriDay: draft.birthdayHijriDay,
-      hijriMonth: draft.birthdayHijriMonth,
-      hijriYear: draft.birthdayHijriYear,
-      showYear: Boolean(draft.birthdayGregorianDate || draft.birthdayHijriYear),
-      reminderDaysBefore: reminderDays
-    };
-  }
-
-  if (draft.livingStatus === "deceased" && (draft.passingGregorianDate || (draft.passingHijriDay && draft.passingHijriMonth))) {
-    return {
-      id: "demo-date",
-      workspaceId: "demo-workspace",
-      personId: "demo-person",
-      type: "passing_anniversary",
-      gregorianDate: draft.passingGregorianDate,
-      hijriDay: draft.passingHijriDay,
-      hijriMonth: draft.passingHijriMonth,
-      hijriYear: draft.passingHijriYear,
-      showYear: Boolean(draft.passingGregorianDate || draft.passingHijriYear),
-      reminderDaysBefore: reminderDays
-    };
-  }
-
-  return null;
 }
 
 function QuickAction(props: { icon: typeof UserRoundPlus; label: string; onPress: () => void }) {
