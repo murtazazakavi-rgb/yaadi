@@ -103,6 +103,9 @@ export function AuthScreen({ navigation }: NavProps) {
     if (!session) {
       return;
     }
+    if (!profile) {
+      return;
+    }
 
     if (profile?.role === "super_admin") {
       navigation.replace?.("SuperAdminDashboard");

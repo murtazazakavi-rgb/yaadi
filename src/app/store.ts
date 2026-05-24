@@ -119,12 +119,13 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
       return;
     }
 
-    set({ session: data.session });
     if (data.session) {
       const profile = await syncProfile();
-      set({ profile });
+      set({ session: data.session, profile });
       await get().loadWorkspaces();
       await loadPlans(set);
+    } else {
+      set({ session: null, profile: undefined });
     }
 
     set({ initialized: true, loading: false });
@@ -138,9 +139,8 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
       throw error;
     }
 
-    set({ session: data.session });
     const profile = await syncProfile();
-    set({ profile });
+    set({ session: data.session, profile });
     await Promise.all([get().loadWorkspaces(), loadPlans(set)]);
     set({ loading: false });
   },
