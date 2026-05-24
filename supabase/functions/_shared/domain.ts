@@ -195,3 +195,11 @@ export type WorkspaceMember = {
   email?: string;
   name?: string;
 };
+
+export type ProvisionWorkspaceOwnerInput = {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  workspaceName: string;
+};

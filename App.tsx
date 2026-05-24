@@ -41,7 +41,7 @@ function MainTabs() {
           tabBarActiveTintColor: colors.goldDark,
           tabBarInactiveTintColor: colors.mutedGrey,
           tabBarStyle: {
-            backgroundColor: colors.cream,
+            backgroundColor: colors.card,
             borderTopColor: colors.border,
             minHeight: 76,
             paddingBottom: 14,
@@ -56,9 +56,7 @@ function MainTabs() {
       }}
     >
       <Tab.Screen name="Home" component={DashboardScreen} />
-      <Tab.Screen name="People" component={PeopleDirectoryScreen} />
-      <Tab.Screen name="Reminders" component={UpcomingRemindersScreen} />
-      <Tab.Screen name="Relations" component={RelationshipLinkingScreen} />
+      <Tab.Screen name="Contacts" component={PeopleDirectoryScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
@@ -82,7 +80,7 @@ export default function App() {
         initialRouteName="Auth"
         screenOptions={{
           headerStyle: { backgroundColor: colors.ivory },
-          headerTintColor: colors.charcoal,
+          headerTintColor: colors.goldDark,
           headerTitleStyle: {
             fontFamily: "Cormorant Garamond",
             fontSize: 25,
@@ -98,7 +96,7 @@ export default function App() {
         <RootStack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
         <RootStack.Screen name="PeopleDirectory" component={PeopleDirectoryScreen} options={{ title: "People" }} />
         <RootStack.Screen name="PersonProfile" component={PersonProfileScreen} options={{ title: "Profile" }} />
-        <RootStack.Screen name="AddPerson" component={AddPersonScreen} options={{ title: "Add Person" }} />
+        <RootStack.Screen name="AddPerson" component={AddPersonScreen} options={{ title: "Add Contact" }} />
         <RootStack.Screen name="AddBirthday" component={AddBirthdayScreen} options={{ title: "Birthday" }} />
         <RootStack.Screen name="AddPassingAnniversary" component={AddPassingAnniversaryScreen} options={{ title: "Anniversary" }} />
         <RootStack.Screen name="AddWeddingAnniversary" component={AddWeddingAnniversaryScreen} options={{ title: "Wedding Anniversary" }} />

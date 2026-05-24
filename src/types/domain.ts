@@ -195,3 +195,25 @@ export type WorkspaceMember = {
   email?: string;
   name?: string;
 };
+
+export type AdminWorkspaceSummary = {
+  id: string;
+  name: string;
+  status: WorkspaceStatus;
+  subscriptionStatus: SubscriptionStatus;
+  ownerUserId: string;
+  ownerEmail?: string;
+  ownerName?: string;
+  peopleCount: number;
+  importantDatesCount: number;
+  memberCount: number;
+  createdAt: Date;
+};
+
+export type ProvisionWorkspaceOwnerInput = {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  workspaceName: string;
+};

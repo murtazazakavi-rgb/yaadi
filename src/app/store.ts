@@ -1,6 +1,7 @@
 import { Session } from "@supabase/supabase-js";
 import { create } from "zustand";
 import {
+  AdminWorkspaceSummary,
   FamilyWorkspace,
   ImportantDate,
   ImportantDateParticipant,
@@ -8,6 +9,7 @@ import {
   PersonRelationship,
   Plan,
   PublicFamilySubmission,
+  ProvisionWorkspaceOwnerInput,
   PublicSubmissionPayload,
   RelationshipType,
   ReminderChannel,
@@ -42,6 +44,7 @@ type YaadiState = {
   submissions: PublicFamilySubmission[];
   invitations: WorkspaceInvitation[];
   members: WorkspaceMember[];
+  adminWorkspaces: AdminWorkspaceSummary[];
   selectedPersonId?: string;
   bootstrap: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -50,6 +53,9 @@ type YaadiState = {
   loadWorkspaces: () => Promise<FamilyWorkspace[]>;
   selectWorkspace: (workspaceId: string) => Promise<void>;
   createWorkspace: (name: string) => Promise<FamilyWorkspace>;
+  loadAdminWorkspaces: () => Promise<AdminWorkspaceSummary[]>;
+  provisionWorkspaceOwner: (input: ProvisionWorkspaceOwnerInput) => Promise<void>;
+  openWorkspaceAsAdmin: (workspaceId: string) => Promise<void>;
   setSelectedPersonId: (personId: string) => void;
   createPerson: (input: NewPerson) => Promise<Person>;
   updatePerson: (personId: string, input: Partial<NewPerson>) => Promise<void>;
@@ -94,6 +100,7 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
   submissions: [],
   invitations: [],
   members: [],
+  adminWorkspaces: [],
 
   async bootstrap() {
     set({ loading: true, error: undefined });
@@ -114,7 +121,8 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
 
     set({ session: data.session });
     if (data.session) {
-      await syncProfile();
+      const profile = await syncProfile();
+      set({ profile });
       await get().loadWorkspaces();
       await loadPlans(set);
     }
@@ -131,7 +139,8 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
     }
 
     set({ session: data.session });
-    await syncProfile();
+    const profile = await syncProfile();
+    set({ profile });
     await Promise.all([get().loadWorkspaces(), loadPlans(set)]);
     set({ loading: false });
   },
@@ -160,6 +169,7 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
       submissions: [],
       invitations: [],
       members: [],
+      adminWorkspaces: [],
       selectedPersonId: undefined
     });
   },
@@ -272,6 +282,78 @@ export const useYaadiStore = create<YaadiState>((set, get) => ({
       set({ loading: false, error: message });
       throw caught;
     }
+  },
+
+  async loadAdminWorkspaces() {
+    const profile = get().profile;
+    if (profile?.role !== "super_admin") {
+      set({ adminWorkspaces: [] });
+      return [];
+    }
+
+    const [workspacesResult, usersResult, peopleResult, datesResult, membersResult] = await Promise.all([
+      supabase.from("family_workspaces").select("*").order("created_at", { ascending: false }),
+      supabase.from("users").select("id, email, first_name, last_name"),
+      supabase.from("people").select("id, workspace_id"),
+      supabase.from("important_dates").select("id, workspace_id"),
+      supabase.from("workspace_members").select("id, workspace_id")
+    ]);
+    const error = workspacesResult.error ?? usersResult.error ?? peopleResult.error ?? datesResult.error ?? membersResult.error;
+    if (error) {
+      set({ error: error.message });
+      throw error;
+    }
+
+    const usersById = new Map((usersResult.data ?? []).map((user) => [user.id, user]));
+    const peopleCounts = countByWorkspace(peopleResult.data ?? []);
+    const dateCounts = countByWorkspace(datesResult.data ?? []);
+    const memberCounts = countByWorkspace(membersResult.data ?? []);
+    const summaries = (workspacesResult.data ?? []).map((row) => {
+      const owner = usersById.get(row.owner_user_id);
+      return {
+        id: row.id,
+        name: row.name,
+        status: row.status,
+        subscriptionStatus: row.subscription_status,
+        ownerUserId: row.owner_user_id,
+        ownerEmail: owner?.email ?? undefined,
+        ownerName: [owner?.first_name, owner?.last_name].filter(Boolean).join(" ") || undefined,
+        peopleCount: peopleCounts.get(row.id) ?? 0,
+        importantDatesCount: dateCounts.get(row.id) ?? 0,
+        memberCount: memberCounts.get(row.id) ?? 0,
+        createdAt: new Date(row.created_at)
+      } satisfies AdminWorkspaceSummary;
+    });
+    set({ adminWorkspaces: summaries });
+    return summaries;
+  },
+
+  async provisionWorkspaceOwner(input) {
+    set({ loading: true, error: undefined });
+    const { error } = await supabase.functions.invoke("provision-workspace-owner", { body: input });
+    if (error) {
+      set({ loading: false, error: error.message });
+      throw error;
+    }
+    await get().loadAdminWorkspaces();
+    set({ loading: false });
+  },
+
+  async openWorkspaceAsAdmin(workspaceId) {
+    const existing = get().workspaces.find((item) => item.id === workspaceId);
+    if (existing) {
+      await get().selectWorkspace(workspaceId);
+      return;
+    }
+
+    const { data, error } = await supabase.from("family_workspaces").select("*").eq("id", workspaceId).single();
+    if (error || !data) {
+      set({ error: error?.message ?? "Workspace could not be opened." });
+      throw error ?? new Error("Workspace could not be opened.");
+    }
+    const workspace = mapWorkspace(data);
+    set({ workspaces: uniqueWorkspaces([...get().workspaces, workspace]) });
+    await get().selectWorkspace(workspace.id);
   },
 
   setSelectedPersonId(personId) {
@@ -728,11 +810,12 @@ async function loadPlans(set: (partial: Partial<YaadiState>) => void) {
   set({ plans: (data ?? []).map(mapPlan) });
 }
 
-async function syncProfile() {
-  const { error } = await supabase.rpc("sync_current_user_profile");
-  if (error) {
-    throw error;
+async function syncProfile(): Promise<User> {
+  const { data, error } = await supabase.rpc("sync_current_user_profile");
+  if (error || !data) {
+    throw error ?? new Error("Profile could not be loaded.");
   }
+  return mapUser(data);
 }
 
 async function createSubmittedPersonDates(state: YaadiState, person: Person, input: PublicSubmissionPayload["people"][number]) {
@@ -839,6 +922,17 @@ function mapWorkspace(row: Record<string, any>): FamilyWorkspace {
     trialEndsAt: row.trial_ends_at ? new Date(row.trial_ends_at) : undefined,
     timezone: row.timezone ?? "Asia/Kolkata",
     reminderSendTime: String(row.reminder_send_time ?? "09:00").slice(0, 5)
+  };
+}
+
+function mapUser(row: Record<string, any>): User {
+  return {
+    id: row.id,
+    firstName: row.first_name ?? undefined,
+    lastName: row.last_name ?? undefined,
+    email: row.email ?? undefined,
+    mobile: row.mobile ?? undefined,
+    role: row.role
   };
 }
 
@@ -1029,6 +1123,18 @@ function optional(value?: string): string | null {
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function uniqueWorkspaces(workspaces: FamilyWorkspace[]) {
+  return [...new Map(workspaces.map((workspace) => [workspace.id, workspace])).values()];
+}
+
+function countByWorkspace(rows: Array<{ workspace_id: string }>) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    counts.set(row.workspace_id, (counts.get(row.workspace_id) ?? 0) + 1);
+  }
+  return counts;
 }
 
 function normalizeSupabaseError(error: { message?: string; code?: string } | null | undefined, fallback: string) {
